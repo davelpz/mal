@@ -1,3 +1,5 @@
-pub fn eval(line: &str) -> &str {
-    line
+use types::MalType;
+
+pub fn eval(t: &MalType) -> &MalType {
+    t
 }

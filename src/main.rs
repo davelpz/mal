@@ -1,14 +1,16 @@
 extern crate rustyline;
+extern crate regex;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
-mod parse;
+mod reader;
 mod eval;
-mod print;
+mod printer;
+mod types;
 
-fn rep(line: &str) -> &str {
-    print::print(eval::eval(parse::read(line)))
+fn rep(line: &str) -> String {
+    printer::pr_str(eval::eval(&reader::read_str(line)))
 }
 
 const HISTORY_FILE: &str = ".history.txt";
