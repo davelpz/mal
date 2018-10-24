@@ -60,6 +60,8 @@ pub fn read_list(reader: &mut Reader) -> MalType {
         l.push(read_form(reader));
     }
 
+    reader.next(); //need to eat the closing paren
+
     //println!("{:?}", l);
     MalType::List(l)
 }
@@ -77,7 +79,11 @@ pub fn read_atom(reader: &mut Reader) -> MalType {
             if t.chars().next().unwrap() == '\"' {
                 MalType::Str(t.to_string())
             } else {
-                MalType::Symbol(t.to_string())
+                if t == "Nil" {
+                    MalType::Nil
+                } else {
+                    MalType::Symbol(t.to_string())
+                }
             }
         }
         _ => MalType::Nil,
@@ -114,4 +120,110 @@ pub fn tokenizer(line: &str) -> Vec<String> {
 
     //println!("{:?}", v);
     v
+}
+
+/*
+  Unit Tests for various functions/methods
+*/
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tokenizer_test() {
+        assert_eq!(Vec::<String>::new(), tokenizer(""));
+        assert_eq!(Vec::<String>::new(), tokenizer("\n"));
+        assert_eq!(vec!["Nil"], tokenizer("Nil"));
+        assert_eq!(vec!["123"], tokenizer("123"));
+        assert_eq!(vec!["(", ")"], tokenizer("()"));
+        assert_eq!(vec!["[", "]"], tokenizer("[]"));
+        assert_eq!(vec!["{", "}"], tokenizer("{}"));
+        assert_eq!(vec!["\"abc\""], tokenizer("\"abc\""));
+        assert_eq!(vec![";this is a test"], tokenizer(";this is a test"));
+        assert_eq!(
+            vec!["(", "+", "1", "a", ")", ";this is a test"],
+            tokenizer(" (+ 1 a) ;this is a test")
+        );
+        assert_eq!(
+            vec!["(", "-", "(", "+", "1", "a", ")", "234.3", ")", ";this is a test"],
+            tokenizer("(- (+ 1 a) 234.3);this is a test")
+        );
+    }
+
+    #[test]
+    fn reader_test() {
+        let mut r = Reader::new(tokenizer("(- (+ 1 a) 234.3);this is a test"));
+        assert_eq!(Some("("), r.peek());
+        assert_eq!(Some("("), r.next());
+        assert_eq!(Some("-"), r.peek());
+        assert_eq!(Some("-"), r.next());
+        assert_eq!(Some("("), r.peek());
+        assert_eq!(Some("("), r.next());
+        assert_eq!(Some("+"), r.peek());
+        assert_eq!(Some("+"), r.next());
+        assert_eq!(Some("1"), r.peek());
+        assert_eq!(Some("1"), r.next());
+        assert_eq!(Some("a"), r.peek());
+        assert_eq!(Some("a"), r.next());
+        assert_eq!(Some(")"), r.peek());
+        assert_eq!(Some(")"), r.next());
+        assert_eq!(Some("234.3"), r.peek());
+        assert_eq!(Some("234.3"), r.next());
+        assert_eq!(Some(")"), r.peek());
+        assert_eq!(Some(")"), r.next());
+        assert_eq!(Some(";this is a test"), r.peek());
+        assert_eq!(Some(";this is a test"), r.next());
+        assert_eq!(None, r.peek());
+        assert_eq!(None, r.next());
+    }
+
+    #[test]
+    fn read_atom_test() {
+        let mut r = Reader::new(tokenizer("(- (+ 1 a) 234.3 \"boo\");this is a test"));
+        assert_eq!(MalType::Symbol("(".to_string()),read_atom(&mut r));
+        assert_eq!(MalType::Symbol("-".to_string()),read_atom(&mut r));
+        assert_eq!(MalType::Symbol("(".to_string()),read_atom(&mut r));
+        assert_eq!(MalType::Symbol("+".to_string()),read_atom(&mut r));
+        assert_eq!(MalType::Int(1),read_atom(&mut r));
+        assert_eq!(MalType::Symbol("a".to_string()),read_atom(&mut r));
+        assert_eq!(MalType::Symbol(")".to_string()),read_atom(&mut r));
+        assert_eq!(MalType::Float(234.3),read_atom(&mut r));
+        assert_eq!(MalType::Str("\"boo\"".to_string()),read_atom(&mut r));
+        assert_eq!(MalType::Symbol(")".to_string()),read_atom(&mut r));
+        assert_eq!(MalType::Symbol(";this is a test".to_string()),read_atom(&mut r));
+        assert_eq!(MalType::Nil,read_atom(&mut r));
+    }
+
+    #[test]
+    fn read_form_test() {
+        let mut r = Reader::new(tokenizer("(- (+ 1 a) 234.3 \"boo\")"));
+        let mut v1: Vec<MalType> = Vec::new();
+        let mut v2: Vec<MalType> = Vec::new();
+        v2.push(MalType::Symbol("+".to_string()));
+        v2.push(MalType::Int(1));
+        v2.push(MalType::Symbol("a".to_string()));
+
+        v1.push(MalType::Symbol("-".to_string()));
+        v1.push(MalType::List(v2));
+        v1.push(MalType::Float(234.3));
+        v1.push(MalType::Str("\"boo\"".to_string()));
+
+        assert_eq!(MalType::List(v1),read_form(&mut r));
+    }
+
+    #[test]
+    fn read_str_test() {
+        let mut v1: Vec<MalType> = Vec::new();
+        let mut v2: Vec<MalType> = Vec::new();
+        v2.push(MalType::Symbol("+".to_string()));
+        v2.push(MalType::Int(1));
+        v2.push(MalType::Symbol("a".to_string()));
+
+        v1.push(MalType::Symbol("-".to_string()));
+        v1.push(MalType::List(v2));
+        v1.push(MalType::Float(234.3));
+        v1.push(MalType::Str("\"boo\"".to_string()));
+
+        assert_eq!(MalType::List(v1),read_str("(- (+ 1 a) 234.3 \"boo\")"));
+    }
 }
