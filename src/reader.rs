@@ -37,10 +37,10 @@ impl Reader {
     }
 }
 
-fn is_right_paren_or_end(reader: &mut Reader) -> bool {
+fn is_close_char_or_end(reader: &mut Reader, close_char: &str) -> bool {
     match reader.peek() {
         Some(tok) => {
-            if tok == types::TOKEN_RIGHT_PAREN {
+            if tok == close_char {
                 true
             } else {
                 false
@@ -50,27 +50,27 @@ fn is_right_paren_or_end(reader: &mut Reader) -> bool {
     }
 }
 
-pub fn read_list(reader: &mut Reader) -> MalType {
+fn read_list(reader: &mut Reader, close_char: &str) -> Vec<MalType> {
     //println!("read_list: {:?}", reader.peek());
     reader.next(); //need to eat the opening paren
 
     let mut l: Vec<MalType> = Vec::new();
 
-    while !is_right_paren_or_end(reader) {
+    while !is_close_char_or_end(reader, close_char) {
         l.push(read_form(reader));
     }
 
     reader.next(); //need to eat the closing paren
 
     //println!("{:?}", l);
-    MalType::List(l)
+    l
 }
 
 fn parsable<T: FromStr>(s: &str) -> bool {
     s.parse::<T>().is_ok()
 }
 
-pub fn read_atom(reader: &mut Reader) -> MalType {
+fn read_atom(reader: &mut Reader) -> MalType {
     //println!("read_atom: {:?}", reader.peek());
     let result = match reader.next() {
         Some(t) if parsable::<i64>(t) => MalType::Int(t.parse().unwrap()),
@@ -95,7 +95,9 @@ pub fn read_atom(reader: &mut Reader) -> MalType {
 pub fn read_form(reader: &mut Reader) -> MalType {
     //println!("read_form: {:?}", reader.peek());
     match reader.peek() {
-        Some(types::TOKEN_LEFT_PAREN) => read_list(reader),
+        Some(types::TOKEN_LEFT_PAREN) => MalType::List(read_list(reader, types::TOKEN_RIGHT_PAREN)),
+        Some(types::TOKEN_LEFT_BRACKET) => MalType::Vector(read_list(reader, types::TOKEN_RIGHT_BRACKET)),
+        Some(types::TOKEN_LEFT_CURLY) => MalType::Map(read_list(reader, types::TOKEN_RIGHT_CURLY)),
         Some(_) => read_atom(reader),
         None => MalType::Nil,
     }
@@ -114,7 +116,11 @@ pub fn tokenizer(line: &str) -> Vec<String> {
 
     for caps in re.captures_iter(line) {
         let token_str = caps.get(1).map_or("", |m| m.as_str());
-        v.push(token_str.to_string());
+
+        //ignore commments that start with ;
+        if token_str.chars().next().unwrap() != ';' {
+            v.push(token_str.to_string());
+        }
         //println!("{:?}\n", token_str)
     }
 
@@ -139,13 +145,14 @@ mod tests {
         assert_eq!(vec!["[", "]"], tokenizer("[]"));
         assert_eq!(vec!["{", "}"], tokenizer("{}"));
         assert_eq!(vec!["\"abc\""], tokenizer("\"abc\""));
-        assert_eq!(vec![";this is a test"], tokenizer(";this is a test"));
+        //assert_eq!(vec!["~@(", "1", "2", "3", ")"], tokenizer("~@(1 2 3)"));
+        assert_eq!(Vec::<String>::new(), tokenizer(";this is a test"));
         assert_eq!(
-            vec!["(", "+", "1", "a", ")", ";this is a test"],
+            vec!["(", "+", "1", "a", ")"],
             tokenizer(" (+ 1 a) ;this is a test")
         );
         assert_eq!(
-            vec!["(", "-", "(", "+", "1", "a", ")", "234.3", ")", ";this is a test"],
+            vec!["(", "-", "(", "+", "1", "a", ")", "234.3", ")"],
             tokenizer("(- (+ 1 a) 234.3);this is a test")
         );
     }
@@ -171,8 +178,6 @@ mod tests {
         assert_eq!(Some("234.3"), r.next());
         assert_eq!(Some(")"), r.peek());
         assert_eq!(Some(")"), r.next());
-        assert_eq!(Some(";this is a test"), r.peek());
-        assert_eq!(Some(";this is a test"), r.next());
         assert_eq!(None, r.peek());
         assert_eq!(None, r.next());
     }
@@ -180,18 +185,17 @@ mod tests {
     #[test]
     fn read_atom_test() {
         let mut r = Reader::new(tokenizer("(- (+ 1 a) 234.3 \"boo\");this is a test"));
-        assert_eq!(MalType::Symbol("(".to_string()),read_atom(&mut r));
-        assert_eq!(MalType::Symbol("-".to_string()),read_atom(&mut r));
-        assert_eq!(MalType::Symbol("(".to_string()),read_atom(&mut r));
-        assert_eq!(MalType::Symbol("+".to_string()),read_atom(&mut r));
-        assert_eq!(MalType::Int(1),read_atom(&mut r));
-        assert_eq!(MalType::Symbol("a".to_string()),read_atom(&mut r));
-        assert_eq!(MalType::Symbol(")".to_string()),read_atom(&mut r));
-        assert_eq!(MalType::Float(234.3),read_atom(&mut r));
-        assert_eq!(MalType::Str("\"boo\"".to_string()),read_atom(&mut r));
-        assert_eq!(MalType::Symbol(")".to_string()),read_atom(&mut r));
-        assert_eq!(MalType::Symbol(";this is a test".to_string()),read_atom(&mut r));
-        assert_eq!(MalType::Nil,read_atom(&mut r));
+        assert_eq!(MalType::Symbol("(".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Symbol("-".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Symbol("(".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Symbol("+".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Int(1), read_atom(&mut r));
+        assert_eq!(MalType::Symbol("a".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Symbol(")".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Float(234.3), read_atom(&mut r));
+        assert_eq!(MalType::Str("\"boo\"".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Symbol(")".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Nil, read_atom(&mut r));
     }
 
     #[test]
@@ -208,7 +212,7 @@ mod tests {
         v1.push(MalType::Float(234.3));
         v1.push(MalType::Str("\"boo\"".to_string()));
 
-        assert_eq!(MalType::List(v1),read_form(&mut r));
+        assert_eq!(MalType::List(v1), read_form(&mut r));
     }
 
     #[test]
@@ -224,6 +228,6 @@ mod tests {
         v1.push(MalType::Float(234.3));
         v1.push(MalType::Str("\"boo\"".to_string()));
 
-        assert_eq!(MalType::List(v1),read_str("(- (+ 1 a) 234.3 \"boo\")"));
+        assert_eq!(MalType::List(v1), read_str("(- (+ 1 a) 234.3 \"boo\")"));
     }
 }
