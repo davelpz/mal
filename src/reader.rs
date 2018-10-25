@@ -75,11 +75,15 @@ fn read_atom(reader: &mut Reader) -> MalType {
     let result = match reader.next() {
         Some(t) if parsable::<i64>(t) => MalType::Int(t.parse().unwrap()),
         Some(t) if parsable::<f64>(t) => MalType::Float(t.parse().unwrap()),
+        Some(t) if parsable::<bool>(t) => MalType::Bool(t.parse().unwrap()),
         Some(t) => {
-            if t.chars().next().unwrap() == '\"' {
+            let first_char = t.chars().next().unwrap();
+            if first_char == '\"' {
                 MalType::Str(t.to_string())
+            } else if first_char == ':' {
+                MalType::KeyWord(t.to_string())
             } else {
-                if t == "Nil" {
+                if t == "nil" {
                     MalType::Nil
                 } else {
                     MalType::Symbol(t.to_string())
@@ -92,12 +96,40 @@ fn read_atom(reader: &mut Reader) -> MalType {
     result
 }
 
+fn make_quote_list(quote: String, reader: &mut Reader) -> MalType {
+    reader.next(); //eat the quote
+    let next_form = read_form(reader);
+    let mut v: Vec<MalType> = Vec::new();
+    v.push(MalType::Symbol(quote));
+    v.push(next_form);
+    MalType::List(v)
+}
+
+fn make_meta_list(reader: &mut Reader) -> MalType {
+    reader.next(); //eat the quote
+    let meta_form = read_form(reader);
+    let next_form = read_form(reader);
+    let mut v: Vec<MalType> = Vec::new();
+    v.push(MalType::Symbol("with-meta".to_string()));
+    v.push(next_form);
+    v.push(meta_form);
+    MalType::List(v)
+}
+
 pub fn read_form(reader: &mut Reader) -> MalType {
     //println!("read_form: {:?}", reader.peek());
     match reader.peek() {
         Some(types::TOKEN_LEFT_PAREN) => MalType::List(read_list(reader, types::TOKEN_RIGHT_PAREN)),
-        Some(types::TOKEN_LEFT_BRACKET) => MalType::Vector(read_list(reader, types::TOKEN_RIGHT_BRACKET)),
+        Some(types::TOKEN_LEFT_BRACKET) => {
+            MalType::Vector(read_list(reader, types::TOKEN_RIGHT_BRACKET))
+        }
         Some(types::TOKEN_LEFT_CURLY) => MalType::Map(read_list(reader, types::TOKEN_RIGHT_CURLY)),
+        Some(types::TOKEN_QUOTE) => make_quote_list("quote".to_string(), reader),
+        Some(types::TOKEN_QUASIQUOTE) => make_quote_list("quasiquote".to_string(), reader),
+        Some(types::TOKEN_UNQUOTE) => make_quote_list("unquote".to_string(), reader),
+        Some(types::TOKEN_SPLICE_UNQUOTE) => make_quote_list("splice-unquote".to_string(), reader),
+        Some(types::TOKEN_DEREF) => make_quote_list("deref".to_string(), reader),
+        Some(types::TOKEN_WITH_META) => make_meta_list(reader),
         Some(_) => read_atom(reader),
         None => MalType::Nil,
     }
@@ -139,7 +171,7 @@ mod tests {
     fn tokenizer_test() {
         assert_eq!(Vec::<String>::new(), tokenizer(""));
         assert_eq!(Vec::<String>::new(), tokenizer("\n"));
-        assert_eq!(vec!["Nil"], tokenizer("Nil"));
+        assert_eq!(vec!["nil"], tokenizer("nil"));
         assert_eq!(vec!["123"], tokenizer("123"));
         assert_eq!(vec!["(", ")"], tokenizer("()"));
         assert_eq!(vec!["[", "]"], tokenizer("[]"));
@@ -184,7 +216,9 @@ mod tests {
 
     #[test]
     fn read_atom_test() {
-        let mut r = Reader::new(tokenizer("(- (+ 1 a) 234.3 \"boo\");this is a test"));
+        let mut r = Reader::new(tokenizer(
+            "(- (+ 1 a) 234.3 :kw1 nil \"boo\" true false);this is a test",
+        ));
         assert_eq!(MalType::Symbol("(".to_string()), read_atom(&mut r));
         assert_eq!(MalType::Symbol("-".to_string()), read_atom(&mut r));
         assert_eq!(MalType::Symbol("(".to_string()), read_atom(&mut r));
@@ -193,14 +227,18 @@ mod tests {
         assert_eq!(MalType::Symbol("a".to_string()), read_atom(&mut r));
         assert_eq!(MalType::Symbol(")".to_string()), read_atom(&mut r));
         assert_eq!(MalType::Float(234.3), read_atom(&mut r));
+        assert_eq!(MalType::KeyWord(":kw1".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Nil, read_atom(&mut r));
         assert_eq!(MalType::Str("\"boo\"".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Bool(true), read_atom(&mut r));
+        assert_eq!(MalType::Bool(false), read_atom(&mut r));
         assert_eq!(MalType::Symbol(")".to_string()), read_atom(&mut r));
         assert_eq!(MalType::Nil, read_atom(&mut r));
     }
 
     #[test]
     fn read_form_test() {
-        let mut r = Reader::new(tokenizer("(- (+ 1 a) 234.3 \"boo\")"));
+        let mut r = Reader::new(tokenizer("(- (+ 1 a) 234.3 \"boo\" :akeyword)"));
         let mut v1: Vec<MalType> = Vec::new();
         let mut v2: Vec<MalType> = Vec::new();
         v2.push(MalType::Symbol("+".to_string()));
@@ -211,7 +249,55 @@ mod tests {
         v1.push(MalType::List(v2));
         v1.push(MalType::Float(234.3));
         v1.push(MalType::Str("\"boo\"".to_string()));
+        v1.push(MalType::KeyWord(":akeyword".to_string()));
 
+        assert_eq!(MalType::List(v1), read_form(&mut r));
+
+        r = Reader::new(tokenizer("'1"));
+        v1 = Vec::new();
+        v1.push(MalType::Symbol("quote".to_string()));
+        v1.push(MalType::Int(1));
+        assert_eq!(MalType::List(v1), read_form(&mut r));
+
+        r = Reader::new(tokenizer("`1"));
+        v1 = Vec::new();
+        v1.push(MalType::Symbol("quasiquote".to_string()));
+        v1.push(MalType::Int(1));
+        assert_eq!(MalType::List(v1), read_form(&mut r));
+
+        r = Reader::new(tokenizer("~1"));
+        v1 = Vec::new();
+        v1.push(MalType::Symbol("unquote".to_string()));
+        v1.push(MalType::Int(1));
+        assert_eq!(MalType::List(v1), read_form(&mut r));
+
+        r = Reader::new(tokenizer("~@1"));
+        v1 = Vec::new();
+        v1.push(MalType::Symbol("splice-unquote".to_string()));
+        v1.push(MalType::Int(1));
+        assert_eq!(MalType::List(v1), read_form(&mut r));
+
+        r = Reader::new(tokenizer("@1"));
+        v1 = Vec::new();
+        v1.push(MalType::Symbol("deref".to_string()));
+        v1.push(MalType::Int(1));
+        assert_eq!(MalType::List(v1), read_form(&mut r));
+
+        r = Reader::new(tokenizer("^{\"a\" 1} [1 2 3]"));
+        v1 = Vec::new();
+        v2 = Vec::new();
+        let mut v3: Vec<MalType> = Vec::new();
+
+        v2.push(MalType::Int(1));
+        v2.push(MalType::Int(2));
+        v2.push(MalType::Int(3));
+
+        v3.push(MalType::Str("\"a\"".to_string()));
+        v3.push(MalType::Int(1));
+
+        v1.push(MalType::Symbol("with-meta".to_string()));
+        v1.push(MalType::Vector(v2));
+        v1.push(MalType::Map(v3));
         assert_eq!(MalType::List(v1), read_form(&mut r));
     }
 
