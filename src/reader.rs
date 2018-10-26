@@ -1,3 +1,4 @@
+use regex::Captures;
 use regex::Regex;
 use std::str::FromStr;
 use types;
@@ -70,6 +71,24 @@ fn parsable<T: FromStr>(s: &str) -> bool {
     s.parse::<T>().is_ok()
 }
 
+fn unescape_str(s: &str) -> String {
+    let re: Regex = Regex::new(r#"\\(.)"#).unwrap();
+    re.replace_all(&s, |caps: &Captures| {
+        format!(
+            "{}",
+            if &caps[1] == "n" {
+                "\n"
+            } else if &caps[1] == "t" {
+                "\t"
+            } else if &caps[1] == "\\" {
+                "\\"
+            } else {
+                &caps[1]
+            }
+        )
+    }).to_string()
+}
+
 fn read_atom(reader: &mut Reader) -> MalType {
     //println!("read_atom: {:?}", reader.peek());
     let result = match reader.next() {
@@ -79,7 +98,8 @@ fn read_atom(reader: &mut Reader) -> MalType {
         Some(t) => {
             let first_char = t.chars().next().unwrap();
             if first_char == '\"' {
-                MalType::Str(t.to_string())
+                //MalType::Str(t.to_string())
+                MalType::Str(unescape_str(t))
             } else if first_char == ':' {
                 MalType::KeyWord(t.to_string())
             } else {
