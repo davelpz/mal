@@ -9,7 +9,7 @@ fn escape(s: &str) -> String {
             .replace("\n", "\\n")
             .replace("\t", "\\t")
             .replace("\"", "\\\"");
-            //.replace("\\", "\\\\"); //much revisit
+        //.replace("\\", "\\\\"); //much revisit
         result.push_str(&fixed);
         result.push('"');
 
@@ -72,5 +72,7 @@ pub fn pr_str(t: &MalType) -> String {
             result.push_str("}");
             result
         }
+        _ => String::new()
+        //MalType::Func { function: _ } => "MalType::Func".to_string(),
     }
 }

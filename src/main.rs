@@ -1,21 +1,26 @@
-extern crate rustyline;
 extern crate regex;
+extern crate rustyline;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
-mod reader;
 mod eval;
 mod printer;
+mod reader;
 mod types;
 
-fn rep(line: &str) -> String {
-    printer::pr_str(eval::eval(&reader::read_str(line)))
+fn rep(line: &str, env: &types::Env) -> String {
+    let ast = reader::read_str(line);
+    let result = eval::eval(&ast,env).unwrap();
+
+    printer::pr_str(&result)
 }
 
 const HISTORY_FILE: &str = ".history.txt";
 
 fn main() {
+    let env = eval::init_repl_env();
+
     // `()` can be used when no completer is required
     let mut rl = Editor::<()>::new();
     if rl.load_history(HISTORY_FILE).is_err() {
@@ -26,7 +31,7 @@ fn main() {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_ref());
-                println!("{}", rep(&line));
+                println!("{}", rep(&line,&env));
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
