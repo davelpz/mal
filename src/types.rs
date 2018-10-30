@@ -13,37 +13,8 @@ pub const TOKEN_SPLICE_UNQUOTE: &str = "~@";
 pub const TOKEN_DEREF: &str = "@";
 pub const TOKEN_WITH_META: &str = "^";
 
-use std::error;
 use std::fmt;
 use std::rc::Rc;
-
-//Defining Error type for mal
-#[derive(Debug, Clone)]
-pub struct MalError {
-    pub description: String,
-}
-
-impl MalError {
-    pub fn new(description: String) -> MalError {
-        MalError { description }
-    }
-}
-
-impl fmt::Display for MalError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.description)
-    }
-}
-
-impl error::Error for MalError {
-    fn description(&self) -> &str {
-        &self.description
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        None
-    }
-}
 
 #[derive(Debug, PartialEq)]
 pub enum MalType {
@@ -81,14 +52,14 @@ impl MalType {
     pub fn get_int(&self) -> i64 {
         match self {
             MalType::Int(i) => *i,
-            _ => panic!()
+            _ => panic!(),
         }
     }
     pub fn get_float(&self) -> f64 {
         match self {
             MalType::Int(i) => *i as f64,
             MalType::Float(i) => *i,
-            _ => panic!()
+            _ => panic!(),
         }
     }
 }
@@ -107,7 +78,37 @@ impl Clone for MalType {
             MalType::Vector(l) => MalType::Vector(l.clone()),
             MalType::Map(l) => MalType::Map(l.clone()),
             MalType::Func(f) => MalType::Func(f.clone()),
-            MalType::Error(s) => MalType::Error(s.clone())
+            MalType::Error(s) => MalType::Error(s.clone()),
         }
     }
 }
+
+/* Not sure if we need this custom error type
+//Defining Error type for mal
+#[derive(Debug, Clone)]
+pub struct MalError {
+    pub description: String,
+}
+
+impl MalError {
+    pub fn new(description: String) -> MalError {
+        MalError { description }
+    }
+}
+
+impl fmt::Display for MalError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.description)
+    }
+}
+
+impl error::Error for MalError {
+    fn description(&self) -> &str {
+        &self.description
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+*/

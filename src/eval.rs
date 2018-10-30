@@ -1,9 +1,58 @@
+use printer::pr_str;
 use std::collections::HashMap;
 use std::rc::Rc;
+use types::BuiltinFunc;
 use types::BuiltinFuncArgs;
 use types::Env;
 use types::MalType;
-use printer::pr_str;
+
+//Defining Environment type for mal
+#[derive(Debug, Clone)]
+pub struct Environment {
+    pub data: HashMap<String, MalType>,
+    pub outer: Option<Box<Environment>>,
+}
+
+impl Environment {
+    pub fn new() -> Environment {
+        Environment {
+            data: HashMap::new(),
+            outer: None,
+        }
+    }
+
+    pub fn set(&mut self, key: String, value: MalType) -> bool {
+        self.data.insert(key, value);
+
+        true
+    }
+
+    pub fn find(&self, key: String) -> Option<MalType> {
+        match self.data.get(&key) {
+            Some(v) => Some(v.clone()),
+            None => {
+                match self.outer {
+                    None => None,
+                    Some(ref p) => p.find(key)
+                }
+            }
+        }
+    }
+
+    pub fn get(&self, key: String) -> MalType {
+        match self.find(key.clone()) {
+            Some(v) => v,
+            None => MalType::Error(format!("{} not found.", key))
+        }
+    }
+}
+
+pub fn init_environment(env: &mut Environment) {
+    env.set("+".to_string(), MalType::Func(Rc::new(Box::new(addition_builtin))));
+    env.set("-".to_string(), MalType::Func(Rc::new(Box::new(subtraction_builtin))));
+    env.set("*".to_string(), MalType::Func(Rc::new(Box::new(multiplication_builtin))));
+    env.set("/".to_string(), MalType::Func(Rc::new(Box::new(division_builtin))));
+}
 
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {
     args.iter().all(|i| match i {
@@ -151,14 +200,10 @@ pub fn eval<'a, 'b>(t: &'a MalType, env: &'b Env) -> MalType {
                 let first = &l[0];
                 if let MalType::Func(f) = first {
                     f(l[1..].to_vec())
-                } else if let MalType::Error(_) = first {    
-                    MalType::Error(
-                        format!("{}", pr_str(first))
-                    )
+                } else if let MalType::Error(_) = first {
+                    MalType::Error(format!("{}", pr_str(first)))
                 } else {
-                    MalType::Error(
-                        format!("{} not found.", pr_str(first))
-                    )
+                    MalType::Error(format!("{} not found.", pr_str(first)))
                 }
             } else {
                 MalType::Error("internal error: eval_ast of List did not return a List".to_string())
@@ -237,22 +282,25 @@ mod tests {
         assert_eq!(eval(&ast, &env), MalType::Int(-994));
 
         let ast = read_str("(abc 1 2 3)");
-        assert_eq!(eval(&ast, &env), MalType::Error("abc not found.".to_string()));
+        assert_eq!(
+            eval(&ast, &env),
+            MalType::Error("abc not found.".to_string())
+        );
 
         let ast = read_str("()");
-        let empty_vec : Vec<MalType> = vec![];
+        let empty_vec: Vec<MalType> = vec![];
         assert_eq!(eval(&ast, &env), MalType::List(empty_vec));
 
         let ast = read_str("[1 2 (+ 1 2)]");
-        let result_vec : Vec<MalType> = vec![MalType::Int(1), MalType::Int(2), MalType::Int(3)];
+        let result_vec: Vec<MalType> = vec![MalType::Int(1), MalType::Int(2), MalType::Int(3)];
         assert_eq!(eval(&ast, &env), MalType::Vector(result_vec));
 
         let ast = read_str("{\"a\" (+ 7 8)}");
-        let result_vec : Vec<MalType> = vec![MalType::Str("\"a\"".to_string()), MalType::Int(15)];
+        let result_vec: Vec<MalType> = vec![MalType::Str("\"a\"".to_string()), MalType::Int(15)];
         assert_eq!(eval(&ast, &env), MalType::Map(result_vec));
 
         let ast = read_str("{:a (+ 7 8)}");
-        let result_vec : Vec<MalType> = vec![MalType::KeyWord(":a".to_string()), MalType::Int(15)];
+        let result_vec: Vec<MalType> = vec![MalType::KeyWord(":a".to_string()), MalType::Int(15)];
         assert_eq!(eval(&ast, &env), MalType::Map(result_vec));
     }
 }

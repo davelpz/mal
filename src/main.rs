@@ -21,6 +21,9 @@ const HISTORY_FILE: &str = ".history.txt";
 fn main() {
     let env = eval::init_repl_env();
 
+    let mut env2 = eval::Environment::new();
+    eval::init_environment(&mut env2);
+
     // `()` can be used when no completer is required
     let mut rl = Editor::<()>::new();
     if rl.load_history(HISTORY_FILE).is_err() {
