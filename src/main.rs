@@ -11,7 +11,7 @@ mod types;
 
 fn rep(line: &str, env: &types::Env) -> String {
     let ast = reader::read_str(line);
-    let result = eval::eval(&ast,env).unwrap();
+    let result = eval::eval(&ast,env);
 
     printer::pr_str(&result)
 }
