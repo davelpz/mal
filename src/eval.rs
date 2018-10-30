@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use types::BuiltinFuncArgs;
 use types::Env;
-use types::MalError;
 use types::MalType;
+use printer::pr_str;
 
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {
     args.iter().all(|i| match i {
@@ -151,15 +151,17 @@ pub fn eval<'a, 'b>(t: &'a MalType, env: &'b Env) -> MalType {
                 let first = &l[0];
                 if let MalType::Func(f) = first {
                     f(l[1..].to_vec())
+                } else if let MalType::Error(_) = first {    
+                    MalType::Error(
+                        format!("{}", pr_str(first))
+                    )
                 } else {
                     MalType::Error(
-                        "internal error: First element of List is not a function".to_string(),
+                        format!("{} not found.", pr_str(first))
                     )
                 }
             } else {
-                MalType::Error(
-                    "internal error: eval_ast of List did not return a List".to_string(),
-                )
+                MalType::Error("internal error: eval_ast of List did not return a List".to_string())
             }
         }
         _ => eval_ast(t, env),
@@ -172,7 +174,7 @@ pub fn eval_ast<'a, 'b>(t: &'a MalType, env: &'b Env) -> MalType {
             let lookup = env.get(s);
             match lookup {
                 Some(f) => MalType::Func(f.clone()),
-                None =>  MalType::Error(format!("{} not defined.", s)),
+                None => MalType::Error(format!("{} not found.", s)),
             }
         }
         MalType::List(l) => {
@@ -181,18 +183,76 @@ pub fn eval_ast<'a, 'b>(t: &'a MalType, env: &'b Env) -> MalType {
         }
         MalType::Vector(l) => {
             let new_l: Vec<MalType> = l.iter().map(|item| eval(item, env)).collect();
-            MalType::Vector(new_l)            
+            MalType::Vector(new_l)
         }
         MalType::Map(l) => {
-            let new_l: Vec<MalType> = l.iter().enumerate().map(|tup| {
-                if tup.0 % 2 == 1 {
-                    eval(tup.1, env)
-                } else {
-                    tup.1.clone()
-                }
-            }).collect();
-            MalType::Map(new_l)            
+            let new_l: Vec<MalType> = l
+                .iter()
+                .enumerate()
+                .map(|tup| {
+                    if tup.0 % 2 == 1 {
+                        eval(tup.1, env)
+                    } else {
+                        tup.1.clone()
+                    }
+                }).collect();
+            MalType::Map(new_l)
         }
         _ => t.clone(),
+    }
+}
+
+/*
+  Unit Tests for various functions/methods
+*/
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eval::init_repl_env;
+    use reader::read_str;
+
+    #[test]
+    fn eval_test() {
+        let env = init_repl_env();
+
+        let ast = read_str("(+ 1 2)");
+        assert_eq!(eval(&ast, &env), MalType::Int(3));
+
+        let ast = read_str("(+ 5 (* 2 3))");
+        assert_eq!(eval(&ast, &env), MalType::Int(11));
+
+        let ast = read_str("(- (+ 5 (* 2 3)) 3)");
+        assert_eq!(eval(&ast, &env), MalType::Int(8));
+
+        let ast = read_str("(/ (- (+ 5 (* 2 3)) 3) 4)");
+        assert_eq!(eval(&ast, &env), MalType::Int(2));
+
+        let ast = read_str("(/ (- (+ 515 (* 87 311)) 302) 27)");
+        assert_eq!(eval(&ast, &env), MalType::Int(1010));
+
+        let ast = read_str("(* -3 6)");
+        assert_eq!(eval(&ast, &env), MalType::Int(-18));
+
+        let ast = read_str("(/ (- (+ 515 (* -87 311)) 296) 27)");
+        assert_eq!(eval(&ast, &env), MalType::Int(-994));
+
+        let ast = read_str("(abc 1 2 3)");
+        assert_eq!(eval(&ast, &env), MalType::Error("abc not found.".to_string()));
+
+        let ast = read_str("()");
+        let empty_vec : Vec<MalType> = vec![];
+        assert_eq!(eval(&ast, &env), MalType::List(empty_vec));
+
+        let ast = read_str("[1 2 (+ 1 2)]");
+        let result_vec : Vec<MalType> = vec![MalType::Int(1), MalType::Int(2), MalType::Int(3)];
+        assert_eq!(eval(&ast, &env), MalType::Vector(result_vec));
+
+        let ast = read_str("{\"a\" (+ 7 8)}");
+        let result_vec : Vec<MalType> = vec![MalType::Str("\"a\"".to_string()), MalType::Int(15)];
+        assert_eq!(eval(&ast, &env), MalType::Map(result_vec));
+
+        let ast = read_str("{:a (+ 7 8)}");
+        let result_vec : Vec<MalType> = vec![MalType::KeyWord(":a".to_string()), MalType::Int(15)];
+        assert_eq!(eval(&ast, &env), MalType::Map(result_vec));
     }
 }
