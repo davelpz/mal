@@ -196,32 +196,38 @@ fn division_builtin(args: BuiltinFuncArgs) -> MalType {
 
 pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
     match t {
-        MalType::List(l) if l.is_empty() => t.clone(),
-        MalType::List(l1) if !l1.is_empty() => {
-            let eval_list = eval_ast(t, env);
-            if let MalType::List(l2) = eval_list {
-                let first = &l2[0];
-                if let MalType::Symbol(s) = first {
-                    if s == "def!" {
-                        let second = &l1[1];
-                        let third = eval(&l2[2], env);
-                        //println!("{:?}",second);
-                        //println!("{:?}",third);
-                        env.set(second.get_symbol_string(), third)
-                    } else if s == "let*" {
-                        MalType::Nil
-                    } else {
-                        MalType::Int(1)
-                    }
-                } else if let MalType::Func(f) = first {
-                    f(l2[1..].to_vec())
-                } else if let MalType::Error(_) = first {
-                    MalType::Error(pr_str(first).to_string())
+        MalType::Error(_) => t.clone(),
+        MalType::List(list) if list.is_empty() => t.clone(),
+        MalType::List(uneval_list) if !uneval_list.is_empty() => {
+            let first = &uneval_list[0];
+            if let MalType::Error(_) = first {
+                MalType::Error(pr_str(first).to_string())
+            } else if let MalType::Symbol(s) = first {
+                if s == "def!" {
+                    let second = &uneval_list[1];
+                    let third = eval(&uneval_list[2], env);
+                    //println!("{:?}",second);
+                    //println!("{:?}",third);
+                    env.set(second.get_symbol_string(), third)
+                } else if s == "let*" {
+                    MalType::Nil
                 } else {
-                    MalType::Error(format!("{} not found.", pr_str(first)))
+                    let eval_list_ast = eval_ast(t, env);
+                    if let MalType::List(eval_list) = eval_list_ast {
+                        let first = &eval_list[0];
+                        if let MalType::Func(f) = first {
+                            f(eval_list[1..].to_vec())
+                        } else {
+                            MalType::Error(format!("{} not found.", pr_str(first)))
+                        }
+                    } else {
+                        MalType::Error(
+                            "internal error: eval_ast of List did not return a List".to_string(),
+                        )
+                    }
                 }
             } else {
-                MalType::Error("internal error: eval_ast of List did not return a List".to_string())
+                MalType::Error(format!("{} not found.", pr_str(first)))
             }
         }
         _ => eval_ast(t, env),
@@ -230,8 +236,6 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
 
 pub fn eval_ast(t: &MalType, env: &mut Environment) -> MalType {
     match t {
-        MalType::Symbol(s) if s == "def!" => t.clone(),
-        MalType::Symbol(s) if s == "let*" => t.clone(),
         MalType::Symbol(s) => {
             let lookup = env.get(s.to_string());
             match lookup {
