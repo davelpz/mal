@@ -1,57 +1,71 @@
 use printer::pr_str;
 use std::collections::HashMap;
 use std::rc::Rc;
-use types::BuiltinFunc;
 use types::BuiltinFuncArgs;
-use types::Env;
 use types::MalType;
 
 //Defining Environment type for mal
 #[derive(Debug, Clone)]
-pub struct Environment {
+pub struct Environment<'a> {
     pub data: HashMap<String, MalType>,
-    pub outer: Option<Box<Environment>>,
+    pub outer: Option<&'a Environment<'a>>,
 }
 
-impl Environment {
-    pub fn new() -> Environment {
+impl<'a> Environment<'a> {
+    pub fn new() -> Environment<'a> {
         Environment {
             data: HashMap::new(),
             outer: None,
         }
     }
 
-    pub fn set(&mut self, key: String, value: MalType) -> bool {
+    pub fn set(&mut self, key: String, value: MalType) -> MalType {
+        let c = value.clone();
         self.data.insert(key, value);
-
-        true
+        c
     }
 
     pub fn find(&self, key: String) -> Option<MalType> {
         match self.data.get(&key) {
             Some(v) => Some(v.clone()),
-            None => {
-                match self.outer {
-                    None => None,
-                    Some(ref p) => p.find(key)
-                }
-            }
+            None => match self.outer {
+                None => None,
+                Some(ref p) => p.find(key),
+            },
         }
     }
 
     pub fn get(&self, key: String) -> MalType {
         match self.find(key.clone()) {
             Some(v) => v,
-            None => MalType::Error(format!("{} not found.", key))
+            None => MalType::Error(format!("{} not found.", key)),
         }
+    }
+
+    pub fn get_inner(&mut self) -> Environment {
+        let mut inner = Environment::new();
+        inner.outer = Some(self);
+        inner
     }
 }
 
 pub fn init_environment(env: &mut Environment) {
-    env.set("+".to_string(), MalType::Func(Rc::new(Box::new(addition_builtin))));
-    env.set("-".to_string(), MalType::Func(Rc::new(Box::new(subtraction_builtin))));
-    env.set("*".to_string(), MalType::Func(Rc::new(Box::new(multiplication_builtin))));
-    env.set("/".to_string(), MalType::Func(Rc::new(Box::new(division_builtin))));
+    env.set(
+        "+".to_string(),
+        MalType::Func(Rc::new(Box::new(addition_builtin))),
+    );
+    env.set(
+        "-".to_string(),
+        MalType::Func(Rc::new(Box::new(subtraction_builtin))),
+    );
+    env.set(
+        "*".to_string(),
+        MalType::Func(Rc::new(Box::new(multiplication_builtin))),
+    );
+    env.set(
+        "/".to_string(),
+        MalType::Func(Rc::new(Box::new(division_builtin))),
+    );
 }
 
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {
@@ -180,26 +194,27 @@ fn division_builtin(args: BuiltinFuncArgs) -> MalType {
     }
 }
 
-pub fn init_repl_env() -> Env {
-    let mut repl_env: Env = HashMap::new();
-
-    repl_env.insert("+".to_string(), Rc::new(Box::new(addition_builtin)));
-    repl_env.insert("-".to_string(), Rc::new(Box::new(subtraction_builtin)));
-    repl_env.insert("*".to_string(), Rc::new(Box::new(multiplication_builtin)));
-    repl_env.insert("/".to_string(), Rc::new(Box::new(division_builtin)));
-
-    repl_env
-}
-
-pub fn eval<'a, 'b>(t: &'a MalType, env: &'b Env) -> MalType {
+pub fn eval<'a, 'b>(t: &'a MalType, env: &'b mut Environment) -> MalType {
     match t {
         MalType::List(l) if l.len() == 0 => t.clone(),
-        MalType::List(l) if l.len() > 0 => {
+        MalType::List(l1) if l1.len() > 0 => {
             let eval_list = eval_ast(t, env);
-            if let MalType::List(l) = eval_list {
-                let first = &l[0];
-                if let MalType::Func(f) = first {
-                    f(l[1..].to_vec())
+            if let MalType::List(l2) = eval_list {
+                let first = &l2[0];
+                if let MalType::Symbol(s) = first {
+                    if s == "def!" {
+                        let second = &l1[1];
+                        let third = eval(&l2[2], env);
+                        //println!("{:?}",second);
+                        //println!("{:?}",third);
+                        env.set(second.get_symbol_string(), third)
+                    } else if s == "let*" {
+                        MalType::Nil
+                    } else {
+                        MalType::Nil
+                    }
+                } else if let MalType::Func(f) = first {
+                    f(l2[1..].to_vec())
                 } else if let MalType::Error(_) = first {
                     MalType::Error(format!("{}", pr_str(first)))
                 } else {
@@ -213,13 +228,16 @@ pub fn eval<'a, 'b>(t: &'a MalType, env: &'b Env) -> MalType {
     }
 }
 
-pub fn eval_ast<'a, 'b>(t: &'a MalType, env: &'b Env) -> MalType {
+pub fn eval_ast<'a, 'b>(t: &'a MalType, env: &'b mut Environment) -> MalType {
     match t {
+        MalType::Symbol(s) if s == "def!" => t.clone(),
+        MalType::Symbol(s) if s == "let*" => t.clone(),
         MalType::Symbol(s) => {
-            let lookup = env.get(s);
+            let lookup = env.get(s.to_string());
             match lookup {
-                Some(f) => MalType::Func(f.clone()),
-                None => MalType::Error(format!("{} not found.", s)),
+                MalType::Func(f) => MalType::Func(f.clone()),
+                MalType::Error(_) => MalType::Error(format!("{} not found.", s)),
+                _ => lookup,
             }
         }
         MalType::List(l) => {
@@ -253,54 +271,54 @@ pub fn eval_ast<'a, 'b>(t: &'a MalType, env: &'b Env) -> MalType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eval::init_repl_env;
     use reader::read_str;
 
     #[test]
     fn eval_test() {
-        let env = init_repl_env();
+        let mut env = Environment::new();
+        init_environment(&mut env);
 
         let ast = read_str("(+ 1 2)");
-        assert_eq!(eval(&ast, &env), MalType::Int(3));
+        assert_eq!(eval(&ast, &mut env), MalType::Int(3));
 
         let ast = read_str("(+ 5 (* 2 3))");
-        assert_eq!(eval(&ast, &env), MalType::Int(11));
+        assert_eq!(eval(&ast, &mut env), MalType::Int(11));
 
         let ast = read_str("(- (+ 5 (* 2 3)) 3)");
-        assert_eq!(eval(&ast, &env), MalType::Int(8));
+        assert_eq!(eval(&ast, &mut env), MalType::Int(8));
 
         let ast = read_str("(/ (- (+ 5 (* 2 3)) 3) 4)");
-        assert_eq!(eval(&ast, &env), MalType::Int(2));
+        assert_eq!(eval(&ast, &mut env), MalType::Int(2));
 
         let ast = read_str("(/ (- (+ 515 (* 87 311)) 302) 27)");
-        assert_eq!(eval(&ast, &env), MalType::Int(1010));
+        assert_eq!(eval(&ast, &mut env), MalType::Int(1010));
 
         let ast = read_str("(* -3 6)");
-        assert_eq!(eval(&ast, &env), MalType::Int(-18));
+        assert_eq!(eval(&ast, &mut env), MalType::Int(-18));
 
         let ast = read_str("(/ (- (+ 515 (* -87 311)) 296) 27)");
-        assert_eq!(eval(&ast, &env), MalType::Int(-994));
+        assert_eq!(eval(&ast, &mut env), MalType::Int(-994));
 
         let ast = read_str("(abc 1 2 3)");
         assert_eq!(
-            eval(&ast, &env),
+            eval(&ast, &mut env),
             MalType::Error("abc not found.".to_string())
         );
 
         let ast = read_str("()");
         let empty_vec: Vec<MalType> = vec![];
-        assert_eq!(eval(&ast, &env), MalType::List(empty_vec));
+        assert_eq!(eval(&ast, &mut env), MalType::List(empty_vec));
 
         let ast = read_str("[1 2 (+ 1 2)]");
         let result_vec: Vec<MalType> = vec![MalType::Int(1), MalType::Int(2), MalType::Int(3)];
-        assert_eq!(eval(&ast, &env), MalType::Vector(result_vec));
+        assert_eq!(eval(&ast, &mut env), MalType::Vector(result_vec));
 
         let ast = read_str("{\"a\" (+ 7 8)}");
         let result_vec: Vec<MalType> = vec![MalType::Str("\"a\"".to_string()), MalType::Int(15)];
-        assert_eq!(eval(&ast, &env), MalType::Map(result_vec));
+        assert_eq!(eval(&ast, &mut env), MalType::Map(result_vec));
 
         let ast = read_str("{:a (+ 7 8)}");
         let result_vec: Vec<MalType> = vec![MalType::KeyWord(":a".to_string()), MalType::Int(15)];
-        assert_eq!(eval(&ast, &env), MalType::Map(result_vec));
+        assert_eq!(eval(&ast, &mut env), MalType::Map(result_vec));
     }
 }

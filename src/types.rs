@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 pub const TOKEN_LEFT_PAREN: &str = "(";
 pub const TOKEN_RIGHT_PAREN: &str = ")";
@@ -34,7 +33,6 @@ pub enum MalType {
 
 pub type BuiltinFuncArgs = Vec<MalType>;
 pub type BuiltinFunc = Fn(BuiltinFuncArgs) -> MalType;
-pub type Env = HashMap<String, Rc<Box<BuiltinFunc>>>;
 
 impl fmt::Debug for BuiltinFunc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -59,6 +57,12 @@ impl MalType {
         match self {
             MalType::Int(i) => *i as f64,
             MalType::Float(i) => *i,
+            _ => panic!(),
+        }
+    }
+    pub fn get_symbol_string(&self) -> String {
+        match self {
+            MalType::Symbol(s) => s.clone(),
             _ => panic!(),
         }
     }

@@ -9,7 +9,7 @@ mod printer;
 mod reader;
 mod types;
 
-fn rep(line: &str, env: &types::Env) -> String {
+fn rep(line: &str, env: &mut eval::Environment) -> String {
     let ast = reader::read_str(line);
     let result = eval::eval(&ast,env);
 
@@ -19,10 +19,8 @@ fn rep(line: &str, env: &types::Env) -> String {
 const HISTORY_FILE: &str = ".history.txt";
 
 fn main() {
-    let env = eval::init_repl_env();
-
-    let mut env2 = eval::Environment::new();
-    eval::init_environment(&mut env2);
+    let mut env = eval::Environment::new();
+    eval::init_environment(&mut env);
 
     // `()` can be used when no completer is required
     let mut rl = Editor::<()>::new();
@@ -34,7 +32,7 @@ fn main() {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_ref());
-                println!("{}", rep(&line,&env));
+                println!("{}", rep(&line,&mut env));
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
