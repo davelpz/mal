@@ -71,14 +71,14 @@ pub fn init_environment(env: &mut Environment) {
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {
     args.iter().all(|i| match i {
         MalType::Int(_) | MalType::Float(_) => true,
-        _ => return false,
+        _ => false,
     })
 }
 
 fn all_int(args: &BuiltinFuncArgs) -> bool {
     args.iter().all(|i| match i {
         MalType::Int(_) => true,
-        _ => return false,
+        _ => false,
     })
 }
 
@@ -194,10 +194,10 @@ fn division_builtin(args: BuiltinFuncArgs) -> MalType {
     }
 }
 
-pub fn eval<'a, 'b>(t: &'a MalType, env: &'b mut Environment) -> MalType {
+pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
     match t {
-        MalType::List(l) if l.len() == 0 => t.clone(),
-        MalType::List(l1) if l1.len() > 0 => {
+        MalType::List(l) if l.is_empty() => t.clone(),
+        MalType::List(l1) if !l1.is_empty() => {
             let eval_list = eval_ast(t, env);
             if let MalType::List(l2) = eval_list {
                 let first = &l2[0];
@@ -211,12 +211,12 @@ pub fn eval<'a, 'b>(t: &'a MalType, env: &'b mut Environment) -> MalType {
                     } else if s == "let*" {
                         MalType::Nil
                     } else {
-                        MalType::Nil
+                        MalType::Int(1)
                     }
                 } else if let MalType::Func(f) = first {
                     f(l2[1..].to_vec())
                 } else if let MalType::Error(_) = first {
-                    MalType::Error(format!("{}", pr_str(first)))
+                    MalType::Error(pr_str(first).to_string())
                 } else {
                     MalType::Error(format!("{} not found.", pr_str(first)))
                 }
@@ -228,7 +228,7 @@ pub fn eval<'a, 'b>(t: &'a MalType, env: &'b mut Environment) -> MalType {
     }
 }
 
-pub fn eval_ast<'a, 'b>(t: &'a MalType, env: &'b mut Environment) -> MalType {
+pub fn eval_ast(t: &MalType, env: &mut Environment) -> MalType {
     match t {
         MalType::Symbol(s) if s == "def!" => t.clone(),
         MalType::Symbol(s) if s == "let*" => t.clone(),

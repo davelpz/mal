@@ -13,7 +13,7 @@ impl Reader {
     fn new(tokens: Vec<String>) -> Reader {
         Reader {
             position: 0,
-            tokens: tokens,
+            tokens,
         }
     }
 
@@ -40,13 +40,7 @@ impl Reader {
 
 fn is_close_char_or_end(reader: &mut Reader, close_char: &str) -> bool {
     match reader.peek() {
-        Some(tok) => {
-            if tok == close_char {
-                true
-            } else {
-                false
-            }
-        }
+        Some(tok) => tok == close_char,
         None => true,
     }
 }
@@ -74,24 +68,21 @@ fn parsable<T: FromStr>(s: &str) -> bool {
 fn unescape_str(s: &str) -> String {
     let re: Regex = Regex::new(r#"\\(.)"#).unwrap();
     re.replace_all(&s, |caps: &Captures| {
-        format!(
-            "{}",
-            if &caps[1] == "n" {
-                "\n"
-            } else if &caps[1] == "t" {
-                "\t"
-            } else if &caps[1] == "\\" {
-                "\\"
-            } else {
-                &caps[1]
-            }
-        )
+        if &caps[1] == "n" {
+            "\n"
+        } else if &caps[1] == "t" {
+            "\t"
+        } else if &caps[1] == "\\" {
+            "\\"
+        } else {
+            &caps[1]
+        }.to_string()
     }).to_string()
 }
 
 fn read_atom(reader: &mut Reader) -> MalType {
     //println!("read_atom: {:?}", reader.peek());
-    let result = match reader.next() {
+    match reader.next() {
         Some(t) if parsable::<i64>(t) => MalType::Int(t.parse().unwrap()),
         Some(t) if parsable::<f64>(t) => MalType::Float(t.parse().unwrap()),
         Some(t) if parsable::<bool>(t) => MalType::Bool(t.parse().unwrap()),
@@ -102,18 +93,14 @@ fn read_atom(reader: &mut Reader) -> MalType {
                 MalType::Str(unescape_str(t))
             } else if first_char == ':' {
                 MalType::KeyWord(t.to_string())
+            } else if t == "nil" {
+                MalType::Nil
             } else {
-                if t == "nil" {
-                    MalType::Nil
-                } else {
-                    MalType::Symbol(t.to_string())
-                }
+                MalType::Symbol(t.to_string())
             }
         }
         _ => MalType::Nil,
-    };
-    //println!("{:?}", result);
-    result
+    }
 }
 
 fn make_quote_list(quote: String, reader: &mut Reader) -> MalType {
@@ -170,7 +157,7 @@ pub fn tokenizer(line: &str) -> Vec<String> {
         let token_str = caps.get(1).map_or("", |m| m.as_str());
 
         //ignore commments that start with ;
-        if token_str.chars().next().unwrap() != ';' {
+        if !token_str.starts_with(';') {
             v.push(token_str.to_string());
         }
         //println!("{:?}\n", token_str)

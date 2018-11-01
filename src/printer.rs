@@ -72,7 +72,7 @@ pub fn pr_str(t: &MalType) -> String {
             result.push_str("}");
             result
         }
-        MalType::Error(s) => format!("{}", s),
+        MalType::Error(s) => s.to_string(),
         _ => String::new()
         //MalType::Func { function: _ } => "MalType::Func".to_string(),
     }
