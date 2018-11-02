@@ -218,7 +218,7 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                     let second = &uneval_list[1];
 
                     match second {
-                        MalType::List(l) => {
+                        MalType::List(l) | MalType::Vector(l) => {
                             if l.len() % 2 == 1 {
                                 return MalType::Error(
                                     "Error: let*, can't set, odd number in set list.".to_string(),
