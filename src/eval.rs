@@ -201,6 +201,7 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
         MalType::List(uneval_list) if !uneval_list.is_empty() => {
             let first = &uneval_list[0];
             if let MalType::Error(_) = first {
+                //don't think this is needed
                 MalType::Error(pr_str(first).to_string())
             } else if let MalType::Symbol(s) = first {
                 if s == "def!" {
@@ -210,7 +211,47 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                     //println!("{:?}",third);
                     env.set(second.get_symbol_string(), third)
                 } else if s == "let*" {
-                    MalType::Nil
+                    let mut new_env = env.get_inner();
+                    let second = &uneval_list[1];
+
+                    match second {
+                        MalType::List(l) => {
+                            if l.len() % 2 == 1 {
+                                return MalType::Error(
+                                    "Error: let*, can't set, odd number in set list.".to_string(),
+                                );
+                            }
+                            for chunk in l.chunks(2) {
+                                if !chunk.is_empty() {
+                                    match &chunk[0] {
+                                        MalType::Symbol(sym) => {
+                                            let three = eval(&chunk[1], &mut new_env);
+                                            match three {
+                                                MalType::Error(_) => {
+                                                    return three;
+                                                }
+                                                _ => {
+                                                    new_env.set(sym.to_string(), three);
+                                                }
+                                            }
+                                        }
+                                        _ => {
+                                            return MalType::Error(
+                                                "Error: let*, can't set, not symbol.".to_string(),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {
+                            return MalType::Error(
+                                "Error: let*, second argument is not a list.".to_string(),
+                            )
+                        }
+                    }
+
+                    eval(&uneval_list[2], &mut new_env)
                 } else {
                     let eval_list_ast = eval_ast(t, env);
                     if let MalType::List(eval_list) = eval_list_ast {
