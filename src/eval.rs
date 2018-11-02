@@ -209,7 +209,10 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                     let third = eval(&uneval_list[2], env);
                     //println!("{:?}",second);
                     //println!("{:?}",third);
-                    env.set(second.get_symbol_string(), third)
+                    match third {
+                        MalType::Error(_) => third,
+                        _ => env.set(second.get_symbol_string(), third),
+                    }
                 } else if s == "let*" {
                     let mut new_env = env.get_inner();
                     let second = &uneval_list[1];
