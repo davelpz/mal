@@ -1,17 +1,4 @@
 
-pub const TOKEN_LEFT_PAREN: &str = "(";
-pub const TOKEN_RIGHT_PAREN: &str = ")";
-pub const TOKEN_LEFT_BRACKET: &str = "[";
-pub const TOKEN_RIGHT_BRACKET: &str = "]";
-pub const TOKEN_LEFT_CURLY: &str = "{";
-pub const TOKEN_RIGHT_CURLY: &str = "}";
-pub const TOKEN_QUOTE: &str = "'";
-pub const TOKEN_QUASIQUOTE: &str = "`";
-pub const TOKEN_UNQUOTE: &str = "~";
-pub const TOKEN_SPLICE_UNQUOTE: &str = "~@";
-pub const TOKEN_DEREF: &str = "@";
-pub const TOKEN_WITH_META: &str = "^";
-
 use std::fmt;
 use std::rc::Rc;
 

@@ -1,8 +1,21 @@
 use regex::Captures;
 use regex::Regex;
 use std::str::FromStr;
-use types;
 use types::MalType;
+
+pub const TOKEN_LEFT_PAREN: &str = "(";
+pub const TOKEN_RIGHT_PAREN: &str = ")";
+pub const TOKEN_LEFT_BRACKET: &str = "[";
+pub const TOKEN_RIGHT_BRACKET: &str = "]";
+pub const TOKEN_LEFT_CURLY: &str = "{";
+pub const TOKEN_RIGHT_CURLY: &str = "}";
+pub const TOKEN_QUOTE: &str = "'";
+pub const TOKEN_QUASIQUOTE: &str = "`";
+pub const TOKEN_UNQUOTE: &str = "~";
+pub const TOKEN_SPLICE_UNQUOTE: &str = "~@";
+pub const TOKEN_DEREF: &str = "@";
+pub const TOKEN_WITH_META: &str = "^";
+
 
 pub struct Reader {
     tokens: Vec<String>,
@@ -126,17 +139,17 @@ fn make_meta_list(reader: &mut Reader) -> MalType {
 pub fn read_form(reader: &mut Reader) -> MalType {
     //println!("read_form: {:?}", reader.peek());
     match reader.peek() {
-        Some(types::TOKEN_LEFT_PAREN) => MalType::List(read_list(reader, types::TOKEN_RIGHT_PAREN)),
-        Some(types::TOKEN_LEFT_BRACKET) => {
-            MalType::Vector(read_list(reader, types::TOKEN_RIGHT_BRACKET))
+        Some(TOKEN_LEFT_PAREN) => MalType::List(read_list(reader, TOKEN_RIGHT_PAREN)),
+        Some(TOKEN_LEFT_BRACKET) => {
+            MalType::Vector(read_list(reader, TOKEN_RIGHT_BRACKET))
         }
-        Some(types::TOKEN_LEFT_CURLY) => MalType::Map(read_list(reader, types::TOKEN_RIGHT_CURLY)),
-        Some(types::TOKEN_QUOTE) => make_quote_list("quote".to_string(), reader),
-        Some(types::TOKEN_QUASIQUOTE) => make_quote_list("quasiquote".to_string(), reader),
-        Some(types::TOKEN_UNQUOTE) => make_quote_list("unquote".to_string(), reader),
-        Some(types::TOKEN_SPLICE_UNQUOTE) => make_quote_list("splice-unquote".to_string(), reader),
-        Some(types::TOKEN_DEREF) => make_quote_list("deref".to_string(), reader),
-        Some(types::TOKEN_WITH_META) => make_meta_list(reader),
+        Some(TOKEN_LEFT_CURLY) => MalType::Map(read_list(reader, TOKEN_RIGHT_CURLY)),
+        Some(TOKEN_QUOTE) => make_quote_list("quote".to_string(), reader),
+        Some(TOKEN_QUASIQUOTE) => make_quote_list("quasiquote".to_string(), reader),
+        Some(TOKEN_UNQUOTE) => make_quote_list("unquote".to_string(), reader),
+        Some(TOKEN_SPLICE_UNQUOTE) => make_quote_list("splice-unquote".to_string(), reader),
+        Some(TOKEN_DEREF) => make_quote_list("deref".to_string(), reader),
+        Some(TOKEN_WITH_META) => make_meta_list(reader),
         Some(_) => read_atom(reader),
         None => MalType::Nil,
     }

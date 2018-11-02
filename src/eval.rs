@@ -259,7 +259,9 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                     let eval_list_ast = eval_ast(t, env);
                     if let MalType::List(eval_list) = eval_list_ast {
                         let first = &eval_list[0];
-                        if let MalType::Func(f) = first {
+                        if let MalType::Error(_) = first {
+                            first.clone()
+                        } else if let MalType::Func(f) = first {
                             f(eval_list[1..].to_vec())
                         } else {
                             MalType::Error(format!("{} not found.", pr_str(first)))
@@ -322,51 +324,93 @@ mod tests {
     use reader::read_str;
 
     #[test]
-    fn eval_test() {
+    fn eval_test_step2() {
         let mut env = Environment::new();
         init_environment(&mut env);
 
-        let ast = read_str("(+ 1 2)");
-        assert_eq!(eval(&ast, &mut env), MalType::Int(3));
+        let mut tests: Vec<(&str, MalType)> = Vec::new();
+        tests.push(("(+ 1 2)", MalType::Int(3)));
+        tests.push(("(+ 5 (* 2 3))", MalType::Int(11)));
+        tests.push(("(- (+ 5 (* 2 3)) 3)", MalType::Int(8)));
+        tests.push(("(/ (- (+ 5 (* 2 3)) 3) 4)", MalType::Int(2)));
+        tests.push(("(/ (- (+ 515 (* 87 311)) 302) 27)", MalType::Int(1010)));
+        tests.push(("(* -3 6)", MalType::Int(-18)));
+        tests.push(("(/ (- (+ 515 (* -87 311)) 296) 27)", MalType::Int(-994)));
+        tests.push(("(abc 1 2 3)", MalType::Error("abc not found.".to_string())));
 
-        let ast = read_str("(+ 5 (* 2 3))");
-        assert_eq!(eval(&ast, &mut env), MalType::Int(11));
-
-        let ast = read_str("(- (+ 5 (* 2 3)) 3)");
-        assert_eq!(eval(&ast, &mut env), MalType::Int(8));
-
-        let ast = read_str("(/ (- (+ 5 (* 2 3)) 3) 4)");
-        assert_eq!(eval(&ast, &mut env), MalType::Int(2));
-
-        let ast = read_str("(/ (- (+ 515 (* 87 311)) 302) 27)");
-        assert_eq!(eval(&ast, &mut env), MalType::Int(1010));
-
-        let ast = read_str("(* -3 6)");
-        assert_eq!(eval(&ast, &mut env), MalType::Int(-18));
-
-        let ast = read_str("(/ (- (+ 515 (* -87 311)) 296) 27)");
-        assert_eq!(eval(&ast, &mut env), MalType::Int(-994));
-
-        let ast = read_str("(abc 1 2 3)");
-        assert_eq!(
-            eval(&ast, &mut env),
-            MalType::Error("abc not found.".to_string())
-        );
-
-        let ast = read_str("()");
         let empty_vec: Vec<MalType> = vec![];
-        assert_eq!(eval(&ast, &mut env), MalType::List(empty_vec));
+        tests.push(("()", MalType::List(empty_vec)));
 
-        let ast = read_str("[1 2 (+ 1 2)]");
         let result_vec: Vec<MalType> = vec![MalType::Int(1), MalType::Int(2), MalType::Int(3)];
-        assert_eq!(eval(&ast, &mut env), MalType::Vector(result_vec));
+        tests.push(("[1 2 (+ 1 2)]", MalType::Vector(result_vec)));
 
-        let ast = read_str("{\"a\" (+ 7 8)}");
         let result_vec: Vec<MalType> = vec![MalType::Str("\"a\"".to_string()), MalType::Int(15)];
-        assert_eq!(eval(&ast, &mut env), MalType::Map(result_vec));
+        tests.push(("{\"a\" (+ 7 8)}", MalType::Map(result_vec)));
 
-        let ast = read_str("{:a (+ 7 8)}");
         let result_vec: Vec<MalType> = vec![MalType::KeyWord(":a".to_string()), MalType::Int(15)];
-        assert_eq!(eval(&ast, &mut env), MalType::Map(result_vec));
+        tests.push(("{:a (+ 7 8)}", MalType::Map(result_vec)));
+
+        for tup in tests {
+            let ast = read_str(tup.0);
+            assert_eq!(eval(&ast, &mut env), tup.1);
+        }
+    }
+
+    #[test]
+    fn eval_test_step3() {
+        let mut env = Environment::new();
+        init_environment(&mut env);
+
+        let mut tests: Vec<(&str, MalType)> = Vec::new();
+        tests.push(("(+ 1 2)", MalType::Int(3)));
+        tests.push(("(/ (- (+ 5 (* 2 3)) 3) 4)", MalType::Int(2)));
+        tests.push(("(def! x 3)", MalType::Int(3)));
+        tests.push(("x", MalType::Int(3)));
+        tests.push(("(def! x 4)", MalType::Int(4)));
+        tests.push(("x", MalType::Int(4)));
+        tests.push(("(def! y (+ 1 7))", MalType::Int(8)));
+        tests.push(("y", MalType::Int(8)));
+        tests.push(("(def! mynum 111)", MalType::Int(111)));
+        tests.push(("(def! MYNUM 222)", MalType::Int(222)));
+        tests.push(("mynum", MalType::Int(111)));
+        tests.push(("MYNUM", MalType::Int(222)));
+        tests.push(("(abc 1 2 3)", MalType::Error("abc not found.".to_string())));
+        tests.push(("(def! w 123)", MalType::Int(123)));
+        tests.push((
+            "(def! w (abc))",
+            MalType::Error("abc not found.".to_string()),
+        ));
+        tests.push(("(def! w 123)", MalType::Int(123)));
+        tests.push(("(let* (x 9) x)", MalType::Int(9)));
+        tests.push(("(let* (z 9) z)", MalType::Int(9)));
+        tests.push(("x", MalType::Int(4)));
+        tests.push(("(let* (z (+ 2 3)) (+ 1 z))", MalType::Int(6)));
+        tests.push(("(let* (p (+ 2 3) q (+ 2 p)) (+ p q))", MalType::Int(12)));
+        tests.push(("(def! y (let* (z 7) z))", MalType::Int(7)));
+        tests.push(("y", MalType::Int(7)));
+        tests.push(("(def! a 4)", MalType::Int(4)));
+        tests.push(("(let* (q 9) q)", MalType::Int(9)));
+        tests.push(("(let* (q 9) a)", MalType::Int(4)));
+        tests.push(("(let* (z 2) (let* (q 9) a))", MalType::Int(4)));
+        tests.push(("(let* (x 4) (def! a 5))", MalType::Int(5)));
+        tests.push(("a", MalType::Int(4)));
+        tests.push(("(let* [z 9] z)", MalType::Int(9)));
+        tests.push(("(let* [p (+ 2 3) q (+ 2 p)] (+ p q))", MalType::Int(12)));
+
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(3));
+        v1.push(MalType::Int(4));
+        v1.push(MalType::Int(5));
+        let mut v2 = Vec::new();
+        v2.push(MalType::Int(6));
+        v2.push(MalType::Int(7));
+        v1.push(MalType::Vector(v2));
+        v1.push(MalType::Int(8));
+        tests.push(("(let* (a 5 b 6) [3 4 a [b 7] 8])", MalType::Vector(v1)));
+
+        for tup in tests {
+            let ast = read_str(tup.0);
+            assert_eq!(eval(&ast, &mut env), tup.1);
+        }
     }
 }
