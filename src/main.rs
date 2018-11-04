@@ -8,6 +8,7 @@ mod eval;
 mod printer;
 mod reader;
 mod types;
+mod core;
 
 fn rep(line: &str, env: &mut eval::Environment) -> String {
     let ast = reader::read_str(line);
@@ -20,7 +21,7 @@ const HISTORY_FILE: &str = ".history.txt";
 
 fn main() {
     let mut env = eval::Environment::new();
-    eval::init_environment(&mut env);
+    core::init_environment(&mut env);
 
     // `()` can be used when no completer is required
     let mut rl = Editor::<()>::new();

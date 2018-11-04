@@ -1,7 +1,5 @@
 use printer::pr_str;
 use std::collections::HashMap;
-use std::rc::Rc;
-use types::BuiltinFuncArgs;
 use types::MalType;
 
 //Defining Environment type for mal
@@ -47,150 +45,130 @@ impl<'a> Environment<'a> {
         inner.outer = Some(self);
         inner
     }
-}
 
-pub fn init_environment(env: &mut Environment) {
-    env.set(
-        "+".to_string(),
-        MalType::Func(Rc::new(Box::new(addition_builtin))),
-    );
-    env.set(
-        "-".to_string(),
-        MalType::Func(Rc::new(Box::new(subtraction_builtin))),
-    );
-    env.set(
-        "*".to_string(),
-        MalType::Func(Rc::new(Box::new(multiplication_builtin))),
-    );
-    env.set(
-        "/".to_string(),
-        MalType::Func(Rc::new(Box::new(division_builtin))),
-    );
-}
-
-fn all_numeric(args: &BuiltinFuncArgs) -> bool {
-    args.iter().all(|i| match i {
-        MalType::Int(_) | MalType::Float(_) => true,
-        _ => false,
-    })
-}
-
-fn all_int(args: &BuiltinFuncArgs) -> bool {
-    args.iter().all(|i| match i {
-        MalType::Int(_) => true,
-        _ => false,
-    })
-}
-
-fn addition_builtin(args: BuiltinFuncArgs) -> MalType {
-    //Check to make sure we have only numeric types
-    if !all_numeric(&args) {
-        return MalType::Error("Wrong types for +".to_string());
-    }
-
-    if all_int(&args) {
-        let mut result: i64 = 0;
-        for i in args {
-            result += match i {
-                MalType::Int(x) => x,
-                _ => 0,
-            }
+    pub fn bind_exprs(&mut self, binds: Vec<String>, exprs: Vec<MalType>) -> MalType {
+        if binds.len() != exprs.len() {
+            return MalType::Error(
+                "Number of passed parameters doesn't match number of expected arguments."
+                    .to_string(),
+            );
         }
-        MalType::Int(result)
+        for (i, bind) in binds.iter().enumerate() {
+            self.set(bind.clone(), exprs[i].clone());
+        }
+        MalType::Nil
+    }
+}
+
+fn do_def_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalType {
+    let second = &uneval_list[1];
+    let third = eval(&uneval_list[2], env);
+    match third {
+        MalType::Error(_) => third,
+        _ => env.set(second.get_symbol_string(), third),
+    }
+}
+
+fn do_do_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalType {
+    if let MalType::List(l) = eval_ast(&MalType::List(uneval_list[1..].to_vec()), env) {
+        l.last().unwrap().clone()
     } else {
-        let mut result: f64 = 0.0;
-        for i in args {
-            result += match i {
-                MalType::Float(x) => x,
-                MalType::Int(y) => y as f64,
-                _ => 0.0,
-            }
-        }
-        MalType::Float(result)
+        MalType::Error("Internal Error: eval_ast of list did not return a list".to_string())
     }
 }
 
-fn subtraction_builtin(args: BuiltinFuncArgs) -> MalType {
-    //Check to make sure we have only numeric types
-    if !all_numeric(&args) {
-        return MalType::Error("Wrong types for -".to_string());
-    }
-
-    if all_int(&args) {
-        let mut result: i64 = args[0].get_int();
-        for i in args.iter().skip(1) {
-            result -= match i {
-                MalType::Int(x) => *x,
-                _ => 0,
+fn do_if_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalType {
+    let condition = eval(&uneval_list[1], env);
+    match condition {
+        MalType::Error(_) => {
+            condition
+        }
+        MalType::Nil | MalType::Bool(false) => {
+            if uneval_list.len() > 3 {
+                eval(&uneval_list[3], env)
+            } else {
+                MalType::Nil
             }
         }
-        MalType::Int(result)
-    } else {
-        let mut result: f64 = args[0].get_float();
-        for i in args.iter().skip(1) {
-            result -= match i {
-                MalType::Float(x) => *x,
-                MalType::Int(y) => *y as f64,
-                _ => 0.0,
+        _ => {
+            if uneval_list.len() > 2 {
+                eval(&uneval_list[2], env)
+            } else {
+                MalType::Error("Not enough arguments to if function".to_string())
             }
         }
-        MalType::Float(result)
     }
 }
 
-fn multiplication_builtin(args: BuiltinFuncArgs) -> MalType {
-    //Check to make sure we have only numeric types
-    if !all_numeric(&args) {
-        return MalType::Error("Wrong types for *".to_string());
+fn do_let_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalType {
+    let mut new_env = env.get_inner();
+    let second = &uneval_list[1];
+
+    match second {
+        MalType::List(l) | MalType::Vector(l) => {
+            if l.len() % 2 == 1 {
+                return MalType::Error(
+                    "Error: let*, can't set, odd number in set list.".to_string(),
+                );
+            }
+            for chunk in l.chunks(2) {
+                if !chunk.is_empty() {
+                    match &chunk[0] {
+                        MalType::Symbol(sym) => {
+                            let three = eval(&chunk[1], &mut new_env);
+                            match three {
+                                MalType::Error(_) => {
+                                    return three;
+                                }
+                                _ => {
+                                    new_env.set(sym.to_string(), three);
+                                }
+                            }
+                        }
+                        _ => {
+                            return MalType::Error("Error: let*, can't set, not symbol.".to_string())
+                        }
+                    }
+                }
+            }
+        }
+        _ => return MalType::Error("Error: let*, second argument is not a list.".to_string()),
     }
 
-    if all_int(&args) {
-        let mut result: i64 = args[0].get_int();
-        for i in args.iter().skip(1) {
-            result *= match i {
-                MalType::Int(x) => *x,
-                _ => 0,
-            }
+    eval(&uneval_list[2], &mut new_env)
+}
+
+fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
+    let eval_list_ast = eval_ast(t, env);
+    if let MalType::List(eval_list) = eval_list_ast {
+        let first = &eval_list[0];
+        if let MalType::Error(_) = first {
+            first.clone()
+        } else if let MalType::Func(f) = first {
+            f(eval_list[1..].to_vec())
+        } else {
+            MalType::Error(format!("{} not found.", pr_str(first)))
         }
-        MalType::Int(result)
     } else {
-        let mut result: f64 = args[0].get_float();
-        for i in args.iter().skip(1) {
-            result *= match i {
-                MalType::Float(x) => *x,
-                MalType::Int(y) => *y as f64,
-                _ => 0.0,
-            }
-        }
-        MalType::Float(result)
+        MalType::Error("internal error: eval_ast of List did not return a List".to_string())
     }
 }
 
-fn division_builtin(args: BuiltinFuncArgs) -> MalType {
-    //Check to make sure we have only numeric types
-    if !all_numeric(&args) {
-        return MalType::Error("Wrong types for /".to_string());
-    }
-
-    if all_int(&args) {
-        let mut result: i64 = args[0].get_int();
-        for i in args.iter().skip(1) {
-            result /= match i {
-                MalType::Int(x) => *x,
-                _ => 0,
-            }
-        }
-        MalType::Int(result)
+fn do_special_atoms(
+    symbol: &str,
+    uneval_list: &Vec<MalType>,
+    env: &mut Environment,
+) -> Option<MalType> {
+    if symbol == "def!" {
+        Some(do_def_special_atom(uneval_list, env))
+    } else if symbol == "let*" {
+        Some(do_let_special_atom(uneval_list, env))
+    } else if symbol == "do" {
+        Some(do_do_special_atom(uneval_list, env))
+    } else if symbol == "if" {
+        Some(do_if_special_atom(uneval_list, env))
     } else {
-        let mut result: f64 = args[0].get_float();
-        for i in args.iter().skip(1) {
-            result /= match i {
-                MalType::Float(x) => *x,
-                MalType::Int(y) => *y as f64,
-                _ => 0.0,
-            }
-        }
-        MalType::Float(result)
+        None
     }
 }
 
@@ -204,73 +182,10 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                 //don't think this is needed
                 MalType::Error(pr_str(first).to_string())
             } else if let MalType::Symbol(s) = first {
-                if s == "def!" {
-                    let second = &uneval_list[1];
-                    let third = eval(&uneval_list[2], env);
-                    //println!("{:?}",second);
-                    //println!("{:?}",third);
-                    match third {
-                        MalType::Error(_) => third,
-                        _ => env.set(second.get_symbol_string(), third),
-                    }
-                } else if s == "let*" {
-                    let mut new_env = env.get_inner();
-                    let second = &uneval_list[1];
-
-                    match second {
-                        MalType::List(l) | MalType::Vector(l) => {
-                            if l.len() % 2 == 1 {
-                                return MalType::Error(
-                                    "Error: let*, can't set, odd number in set list.".to_string(),
-                                );
-                            }
-                            for chunk in l.chunks(2) {
-                                if !chunk.is_empty() {
-                                    match &chunk[0] {
-                                        MalType::Symbol(sym) => {
-                                            let three = eval(&chunk[1], &mut new_env);
-                                            match three {
-                                                MalType::Error(_) => {
-                                                    return three;
-                                                }
-                                                _ => {
-                                                    new_env.set(sym.to_string(), three);
-                                                }
-                                            }
-                                        }
-                                        _ => {
-                                            return MalType::Error(
-                                                "Error: let*, can't set, not symbol.".to_string(),
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        _ => {
-                            return MalType::Error(
-                                "Error: let*, second argument is not a list.".to_string(),
-                            )
-                        }
-                    }
-
-                    eval(&uneval_list[2], &mut new_env)
+                if let Some(typ) = do_special_atoms(s, uneval_list, env) {
+                    typ
                 } else {
-                    let eval_list_ast = eval_ast(t, env);
-                    if let MalType::List(eval_list) = eval_list_ast {
-                        let first = &eval_list[0];
-                        if let MalType::Error(_) = first {
-                            first.clone()
-                        } else if let MalType::Func(f) = first {
-                            f(eval_list[1..].to_vec())
-                        } else {
-                            MalType::Error(format!("{} not found.", pr_str(first)))
-                        }
-                    } else {
-                        MalType::Error(
-                            "internal error: eval_ast of List did not return a List".to_string(),
-                        )
-                    }
+                    eval_list(t, env)
                 }
             } else {
                 MalType::Error(format!("{} not found.", pr_str(first)))
@@ -321,6 +236,7 @@ pub fn eval_ast(t: &MalType, env: &mut Environment) -> MalType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core::init_environment;
     use reader::read_str;
 
     #[test]
