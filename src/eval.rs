@@ -46,7 +46,7 @@ impl<'a> Environment<'a> {
         inner
     }
 
-    pub fn bind_exprs(&mut self, binds: Vec<String>, exprs: Vec<MalType>) -> MalType {
+    pub fn bind_exprs(&mut self, binds: &[String], exprs: &[MalType]) -> MalType {
         if binds.len() != exprs.len() {
             return MalType::Error(
                 "Number of passed parameters doesn't match number of expected arguments."
@@ -60,7 +60,7 @@ impl<'a> Environment<'a> {
     }
 }
 
-fn do_def_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalType {
+fn do_def_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
     let second = &uneval_list[1];
     let third = eval(&uneval_list[2], env);
     match third {
@@ -69,7 +69,7 @@ fn do_def_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> Mal
     }
 }
 
-fn do_do_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalType {
+fn do_do_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
     if let MalType::List(l) = eval_ast(&MalType::List(uneval_list[1..].to_vec()), env) {
         l.last().unwrap().clone()
     } else {
@@ -77,7 +77,7 @@ fn do_do_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalT
     }
 }
 
-fn do_if_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalType {
+fn do_if_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
     let condition = eval(&uneval_list[1], env);
     match condition {
         MalType::Error(_) => {
@@ -100,7 +100,7 @@ fn do_if_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalT
     }
 }
 
-fn do_let_special_atom(uneval_list: &Vec<MalType>, env: &mut Environment) -> MalType {
+fn do_let_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
     let mut new_env = env.get_inner();
     let second = &uneval_list[1];
 
@@ -156,7 +156,7 @@ fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
 
 fn do_special_atoms(
     symbol: &str,
-    uneval_list: &Vec<MalType>,
+    uneval_list: &[MalType],
     env: &mut Environment,
 ) -> Option<MalType> {
     if symbol == "def!" {
