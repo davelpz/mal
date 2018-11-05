@@ -1,5 +1,7 @@
 use printer::pr_str;
 use std::collections::HashMap;
+use std::rc::Rc;
+use types::BuiltinFuncArgs;
 use types::MalType;
 
 //Defining Environment type for mal
@@ -60,6 +62,17 @@ impl<'a> Environment<'a> {
     }
 }
 
+fn do_fn_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
+    let new_func = |args: BuiltinFuncArgs| {
+        //let mut new_env = env.get_inner();
+
+        MalType::Nil
+    };
+
+    MalType::Func(Rc::new(Box::new(new_func)))
+    //MalType::Nil
+}
+
 fn do_def_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
     let second = &uneval_list[1];
     let third = eval(&uneval_list[2], env);
@@ -80,9 +93,7 @@ fn do_do_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType
 fn do_if_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
     let condition = eval(&uneval_list[1], env);
     match condition {
-        MalType::Error(_) => {
-            condition
-        }
+        MalType::Error(_) => condition,
         MalType::Nil | MalType::Bool(false) => {
             if uneval_list.len() > 3 {
                 eval(&uneval_list[3], env)
@@ -139,9 +150,9 @@ fn do_let_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalTyp
 }
 
 fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
-    let eval_list_ast = eval_ast(t, env);
-    if let MalType::List(eval_list) = eval_list_ast {
-        let first = &eval_list[0];
+    let mut eval_list_ast = eval_ast(t, env);
+    if let MalType::List(ref mut eval_list) = eval_list_ast {
+        let mut first = &eval_list[0];
         if let MalType::Error(_) = first {
             first.clone()
         } else if let MalType::Func(f) = first {
@@ -167,6 +178,8 @@ fn do_special_atoms(
         Some(do_do_special_atom(uneval_list, env))
     } else if symbol == "if" {
         Some(do_if_special_atom(uneval_list, env))
+    } else if symbol == "fn*" {
+        Some(do_fn_special_atom(uneval_list, env))
     } else {
         None
     }

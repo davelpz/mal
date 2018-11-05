@@ -19,24 +19,6 @@ pub fn init_environment(env: &mut Environment) {
     for tup in create_namespace() {
         env.set(tup.0.to_string(),MalType::Func(tup.1));
     }
-    /*
-    env.set(
-        "+".to_string(),
-        MalType::Func(Rc::new(Box::new(addition_builtin))),
-    );
-    env.set(
-        "-".to_string(),
-        MalType::Func(Rc::new(Box::new(subtraction_builtin))),
-    );
-    env.set(
-        "*".to_string(),
-        MalType::Func(Rc::new(Box::new(multiplication_builtin))),
-    );
-    env.set(
-        "/".to_string(),
-        MalType::Func(Rc::new(Box::new(division_builtin))),
-    );
-    */
 }
 
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {
