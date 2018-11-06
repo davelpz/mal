@@ -4,35 +4,37 @@ use std::rc::Rc;
 use types::BuiltinFuncArgs;
 use types::MalType;
 
+pub type EnvScope = HashMap<String, MalType>;
+
 //Defining Environment type for mal
 #[derive(Debug, Clone)]
-pub struct Environment<'a> {
-    pub data: HashMap<String, MalType>,
-    pub outer: Option<&'a Environment<'a>>,
+pub struct Environment {
+    pub scopes: Vec<EnvScope>,
 }
 
-impl<'a> Environment<'a> {
-    pub fn new() -> Environment<'a> {
-        Environment {
-            data: HashMap::new(),
-            outer: None,
-        }
+impl Environment {
+    pub fn new() -> Environment {
+        let mut scopes: Vec<EnvScope> = Vec::new();
+        let initial_scope: EnvScope = HashMap::new();
+        scopes.push(initial_scope);
+
+        Environment { scopes: scopes }
     }
 
     pub fn set(&mut self, key: String, value: MalType) -> MalType {
         let c = value.clone();
-        self.data.insert(key, value);
+        let last_scope = self.scopes.len() - 1;
+        self.scopes[last_scope].insert(key, value);
         c
     }
 
     pub fn find(&self, key: String) -> Option<MalType> {
-        match self.data.get(&key) {
-            Some(v) => Some(v.clone()),
-            None => match self.outer {
-                None => None,
-                Some(ref p) => p.find(key),
-            },
+        for scope in self.scopes.iter().rev() {
+            if let Some(v) = scope.get(&key) {
+                return Some(v.clone());
+            }
         }
+        None
     }
 
     pub fn get(&self, key: String) -> MalType {
@@ -42,13 +44,14 @@ impl<'a> Environment<'a> {
         }
     }
 
-    pub fn get_inner(&mut self) -> Environment {
-        let mut inner = Environment::new();
-        inner.outer = Some(self);
-        inner
+    pub fn get_inner(&self) -> Environment {
+        let mut new_env = self.clone();
+        let new_scope: EnvScope = HashMap::new();
+        new_env.scopes.push(new_scope);
+        new_env
     }
 
-    pub fn bind_exprs(&mut self, binds: &[String], exprs: &[MalType]) -> MalType {
+    pub fn bind_exprs(&mut self, binds: &[MalType], exprs: &[MalType]) -> MalType {
         if binds.len() != exprs.len() {
             return MalType::Error(
                 "Number of passed parameters doesn't match number of expected arguments."
@@ -56,21 +59,30 @@ impl<'a> Environment<'a> {
             );
         }
         for (i, bind) in binds.iter().enumerate() {
-            self.set(bind.clone(), exprs[i].clone());
+            if let MalType::Symbol(b) = bind {
+                self.set(b.clone(), exprs[i].clone());
+            } else {
+                return MalType::Error("Non Symbol in argument list".to_string());
+            }
         }
         MalType::Nil
     }
 }
 
-fn do_fn_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
-    let new_func = |args: BuiltinFuncArgs| {
-        //let mut new_env = env.get_inner();
-
-        MalType::Nil
-    };
-
-    MalType::Func(Rc::new(Box::new(new_func)))
-    //MalType::Nil
+fn do_fn_special_atom(uneval_list: &[MalType], env: &Environment) -> MalType {
+    let new_env = env.get_inner();
+    if let MalType::List(binds) = &uneval_list[1] {
+        let binds_clone = binds.clone();
+        let body = uneval_list[2].clone();
+        let new_func = move |args: BuiltinFuncArgs| {
+            let mut my_env = new_env.clone();
+            my_env.bind_exprs(&binds_clone, &args);
+            eval(&body, &mut my_env)
+        };
+        return MalType::Func(Rc::new(Box::new(new_func)));
+    } else {
+        MalType::Error("bind list is not a list".to_string())
+    }
 }
 
 fn do_def_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
