@@ -62,7 +62,7 @@ impl Environment {
             if let MalType::Symbol(b) = bind {
                 self.set(b.clone(), exprs[i].clone());
             } else {
-                return MalType::Error("Non Symbol in argument list".to_string());
+                return MalType::Error("Non Symbol in parameter list".to_string());
             }
         }
         MalType::Nil
@@ -70,18 +70,32 @@ impl Environment {
 }
 
 fn do_fn_special_atom(uneval_list: &[MalType], env: &Environment) -> MalType {
+    //create new clone environment, to cut ties to passed in env
+    //this will cause issue I think
     let new_env = env.get_inner();
-    if let MalType::List(binds) = &uneval_list[1] {
-        let binds_clone = binds.clone();
-        let body = uneval_list[2].clone();
-        let new_func = move |args: BuiltinFuncArgs| {
-            let mut my_env = new_env.clone();
-            my_env.bind_exprs(&binds_clone, &args);
-            eval(&body, &mut my_env)
-        };
-        return MalType::Func(Rc::new(Box::new(new_func)));
-    } else {
-        MalType::Error("bind list is not a list".to_string())
+
+    //uneval_list should be a List type
+    match &uneval_list[1] {
+        MalType::List(binds) | MalType::Vector(binds) => {
+            //need to clone everything to prevent dangaling references
+            let binds_clone = binds.clone();
+            let function_body = uneval_list[2].clone();
+            let new_func = move |args: BuiltinFuncArgs| {
+                //clone again to gut ties to outer function body
+                let mut new_func_env = new_env.clone();
+
+                //bind function arguments
+                new_func_env.bind_exprs(&binds_clone, &args);
+
+                //finally call the function
+                eval(&function_body, &mut new_func_env)
+            };
+            return MalType::Func(Rc::new(Box::new(new_func)));
+        }
+        _ => MalType::Error(format!(
+            "bind list is not a list: {} ",
+            pr_str(&uneval_list[1])
+        )),
     }
 }
 
