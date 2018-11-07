@@ -94,7 +94,7 @@ fn do_fn_special_atom(uneval_list: &[MalType], env: &Environment) -> MalType {
         }
         _ => MalType::Error(format!(
             "bind list is not a list: {} ",
-            pr_str(&uneval_list[1])
+            pr_str(&uneval_list[1], true)
         )),
     }
 }
@@ -184,7 +184,7 @@ fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
         } else if let MalType::Func(f) = first {
             f(eval_list[1..].to_vec())
         } else {
-            MalType::Error(format!("{} not found.", pr_str(first)))
+            MalType::Error(format!("{} not found.", pr_str(first, true)))
         }
     } else {
         MalType::Error("internal error: eval_ast of List did not return a List".to_string())
@@ -219,7 +219,7 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
             let first = &uneval_list[0];
             if let MalType::Error(_) = first {
                 //don't think this is needed
-                MalType::Error(pr_str(first).to_string())
+                MalType::Error(pr_str(first, true).to_string())
             } else if let MalType::Symbol(s) = first {
                 if let Some(typ) = do_special_atoms(s, uneval_list, env) {
                     typ

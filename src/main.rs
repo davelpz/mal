@@ -14,7 +14,7 @@ fn rep(line: &str, env: &mut eval::Environment) -> String {
     let ast = reader::read_str(line);
     let result = eval::eval(&ast,env);
 
-    printer::pr_str(&result)
+    printer::pr_str(&result, true)
 }
 
 const HISTORY_FILE: &str = ".history.txt";

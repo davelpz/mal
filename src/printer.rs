@@ -8,8 +8,8 @@ fn escape(s: &str) -> String {
         let fixed = s[1..(len - 1)]
             .replace("\n", "\\n")
             .replace("\t", "\\t")
-            .replace("\"", "\\\"");
-        //.replace("\\", "\\\\"); //much revisit
+            .replace("\"", "\\\"")
+        .replace("\\", "\\\\"); //must revisit
         result.push_str(&fixed);
         result.push('"');
 
@@ -19,7 +19,7 @@ fn escape(s: &str) -> String {
     }
 }
 
-pub fn pr_str(t: &MalType) -> String {
+pub fn pr_str(t: &MalType, print_readably: bool) -> String {
     //println!("{:?}",t);
 
     match t {
@@ -27,7 +27,7 @@ pub fn pr_str(t: &MalType) -> String {
         MalType::Int(x) => x.to_string(),
         MalType::Float(f) => f.to_string(),
         MalType::Bool(b) => b.to_string(),
-        MalType::Str(s) => escape(s),
+        MalType::Str(s) => if print_readably { escape(s) } else { s.to_string() },
         MalType::Symbol(s) => s.to_string(),
         MalType::KeyWord(s) => s.to_string(),
         MalType::List(l) => {
@@ -38,7 +38,7 @@ pub fn pr_str(t: &MalType) -> String {
                 if i > 0 {
                     result.push_str(" ");
                 }
-                result.push_str(&pr_str(item));
+                result.push_str(&pr_str(item, print_readably));
             }
 
             result.push_str(")");
@@ -52,7 +52,7 @@ pub fn pr_str(t: &MalType) -> String {
                 if i > 0 {
                     result.push_str(" ");
                 }
-                result.push_str(&pr_str(item));
+                result.push_str(&pr_str(item, print_readably));
             }
 
             result.push_str("]");
@@ -66,7 +66,7 @@ pub fn pr_str(t: &MalType) -> String {
                 if i > 0 {
                     result.push_str(" ");
                 }
-                result.push_str(&pr_str(item));
+                result.push_str(&pr_str(item, print_readably));
             }
 
             result.push_str("}");
