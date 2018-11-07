@@ -90,7 +90,7 @@ fn do_fn_special_atom(uneval_list: &[MalType], env: &Environment) -> MalType {
                 //finally call the function
                 eval(&function_body, &mut new_func_env)
             };
-            return MalType::Func(Rc::new(Box::new(new_func)));
+            MalType::Func(Rc::new(Box::new(new_func)))
         }
         _ => MalType::Error(format!(
             "bind list is not a list: {} ",
@@ -227,7 +227,8 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                     eval_list(t, env)
                 }
             } else {
-                MalType::Error(format!("{} not found.", pr_str(first)))
+                eval_list(t, env)
+                //MalType::Error(format!("{} not found.", pr_str(first)))
             }
         }
         _ => eval_ast(t, env),
