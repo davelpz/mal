@@ -4,6 +4,7 @@ use std::rc::Rc;
 use types::BuiltinFunc;
 use types::BuiltinFuncArgs;
 use types::MalType;
+use ::rep;
 
 pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
     let mut ns: Vec<(&str, Rc<Box<BuiltinFunc>>)> = Vec::new();
@@ -33,6 +34,9 @@ pub fn init_environment(env: &mut Environment) {
     for tup in create_namespace() {
         env.set(tup.0.to_string(), MalType::Func(tup.1));
     }
+
+    
+    rep("(def! not (fn* (a) (if a false true)))", env);
 }
 
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {

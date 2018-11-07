@@ -10,7 +10,7 @@ mod reader;
 mod types;
 mod core;
 
-fn rep(line: &str, env: &mut eval::Environment) -> String {
+pub fn rep(line: &str, env: &mut eval::Environment) -> String {
     let ast = reader::read_str(line);
     let result = eval::eval(&ast,env);
 
