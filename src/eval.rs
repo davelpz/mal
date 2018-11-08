@@ -369,4 +369,96 @@ mod tests {
             assert_eq!(eval(&ast, &mut env), tup.1);
         }
     }
+
+    #[test]
+    fn eval_test_step4() {
+        let mut env = Environment::new();
+        init_environment(&mut env);
+
+        let mut tests: Vec<(&str, MalType)> = Vec::new();
+
+        //;; Testing list functions
+        tests.push(("(list)", MalType::List(Vec::new())));
+        tests.push(("(list? (list))", MalType::Bool(true)));
+        tests.push(("(empty? (list))", MalType::Bool(true)));
+        tests.push(("(empty? (list 1))", MalType::Bool(false)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("(list 1 2 3)", MalType::List(v1)));
+        tests.push(("(count (list 1 2 3))", MalType::Int(3)));
+        tests.push(("(count (list))", MalType::Int(0)));
+        tests.push(("(count nil)", MalType::Int(0)));
+        tests.push(("(if (> (count (list 1 2 3)) 3) \"yes\" \"no\")", MalType::Str("\"no\"".to_string())));
+        tests.push(("(if (>= (count (list 1 2 3)) 3) \"yes\" \"no\")", MalType::Str("\"yes\"".to_string())));
+
+        //;; Testing if form
+        tests.push(("(if true 7 8)", MalType::Int(7)));
+        tests.push(("(if false 7 8)", MalType::Int(8)));
+        tests.push(("(if true (+ 1 7) (+ 1 8))", MalType::Int(8)));
+        tests.push(("(if false (+ 1 7) (+ 1 8))", MalType::Int(9)));
+        tests.push(("(if nil 7 8)", MalType::Int(8)));
+        tests.push(("(if 0 7 8)", MalType::Int(7)));
+        tests.push(("(if \"\" 7 8)", MalType::Int(7)));
+        tests.push(("(if (list) 7 8)", MalType::Int(7)));
+        tests.push(("(if (list 1 2 3) 7 8)", MalType::Int(7)));
+        tests.push(("(= (list) nil)", MalType::Bool(false)));
+
+        //;; Testing 1-way if form
+        tests.push(("(if false (+ 1 7))", MalType::Nil));
+        tests.push(("(if nil 8 7)", MalType::Int(7)));
+        tests.push(("(if true (+ 1 7))", MalType::Int(8)));
+
+        //;; Testing basic conditionals
+        tests.push(("(= 2 1)", MalType::Bool(false)));
+        tests.push(("(= 1 1)", MalType::Bool(true)));
+        tests.push(("(= 1 2)", MalType::Bool(false)));
+        tests.push(("(= 1 (+ 1 1))", MalType::Bool(false)));
+        tests.push(("(= 2 (+ 1 1))", MalType::Bool(true)));
+        tests.push(("(= nil 1)", MalType::Bool(false)));
+        tests.push(("(= nil nil)", MalType::Bool(true)));
+        tests.push(("(> 2 1)", MalType::Bool(true)));
+        tests.push(("(> 1 1)", MalType::Bool(false)));
+        tests.push(("(> 1 2)", MalType::Bool(false)));
+        tests.push(("(>= 2 1)", MalType::Bool(true)));
+        tests.push(("(>= 1 1)", MalType::Bool(true)));
+        tests.push(("(>= 1 2)", MalType::Bool(false)));
+        tests.push(("(< 2 1)", MalType::Bool(false)));
+        tests.push(("(< 1 1)", MalType::Bool(false)));
+        tests.push(("(< 1 2)", MalType::Bool(true)));
+        tests.push(("(<= 2 1)", MalType::Bool(false)));
+        tests.push(("(<= 1 1)", MalType::Bool(true)));
+        tests.push(("(<= 1 2)", MalType::Bool(true)));
+
+        //;; Testing equality
+        tests.push(("(= 1 1)", MalType::Bool(true)));
+        tests.push(("(= 0 0)", MalType::Bool(true)));
+        tests.push(("(= 1 0)", MalType::Bool(false)));
+        tests.push(("(= \"\" \"\")", MalType::Bool(true)));
+        tests.push(("(= \"abc\" \"abc\")", MalType::Bool(true)));
+        tests.push(("(= \"abc\" \"\")", MalType::Bool(false)));
+        tests.push(("(= \"\" \"abc\")", MalType::Bool(false)));
+        tests.push(("(= \"abc\" \"def\")", MalType::Bool(false)));
+        tests.push(("(= \"abc\" \"ABC\")", MalType::Bool(false)));
+        tests.push(("(= true true)", MalType::Bool(true)));
+        tests.push(("(= false false)", MalType::Bool(true)));
+        tests.push(("(= nil nil)", MalType::Bool(true)));
+        tests.push(("(= (list) (list))", MalType::Bool(true)));
+        tests.push(("(= (list 1 2) (list 1 2))", MalType::Bool(true)));
+        tests.push(("(= (list 1) (list))", MalType::Bool(false)));
+        tests.push(("(= (list) (list 1))", MalType::Bool(false)));
+        tests.push(("(= 0 (list))", MalType::Bool(false)));
+        tests.push(("(= (list) 0)", MalType::Bool(false)));
+        tests.push(("(= (list) \"\")", MalType::Bool(false)));
+        tests.push(("(= \"\" (list))", MalType::Bool(false)));
+
+        //;; Testing builtin and user defined functions
+
+        
+        for tup in tests {
+            let ast = read_str(tup.0);
+            assert_eq!(eval(&ast, &mut env), tup.1);
+        }
+    }
 }
