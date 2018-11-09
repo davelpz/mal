@@ -1,6 +1,7 @@
 use printer::pr_str;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::cell::RefCell;
 use types::BuiltinFuncArgs;
 use types::MalType;
 
@@ -8,33 +9,46 @@ pub type EnvScope = HashMap<String, MalType>;
 
 //Defining Environment type for mal
 #[derive(Debug, Clone)]
+pub struct EnvironmentContents {
+    pub map: EnvScope,
+    pub outer: Option<Rc<RefCell<EnvironmentContents>>>
+}
+
+impl EnvironmentContents {
+    pub fn find(&self, key: String) -> Option<MalType> {
+        if let Some(x) = self.map.get(&key) {
+            Some(x.clone())
+        } else {
+            if let Some(out) = self.outer.clone() {
+                out.borrow().find(key)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Environment {
-    pub scopes: Vec<EnvScope>,
+    pub env: Rc<RefCell<EnvironmentContents>>
 }
 
 impl Environment {
     pub fn new() -> Environment {
-        let mut scopes: Vec<EnvScope> = Vec::new();
-        let initial_scope: EnvScope = HashMap::new();
-        scopes.push(initial_scope);
-
-        Environment { scopes: scopes }
+        Environment {
+            env: Rc::new(RefCell::new(EnvironmentContents { map: HashMap::new(), outer: None }))
+        }
     }
 
-    pub fn set(&mut self, key: String, value: MalType) -> MalType {
+    pub fn set(&self, key: String, value: MalType) -> MalType {
         let c = value.clone();
-        let last_scope = self.scopes.len() - 1;
-        self.scopes[last_scope].insert(key, value);
+        self.env.borrow_mut().map.insert(key,value);
         c
     }
 
     pub fn find(&self, key: String) -> Option<MalType> {
-        for scope in self.scopes.iter().rev() {
-            if let Some(v) = scope.get(&key) {
-                return Some(v.clone());
-            }
-        }
-        None
+        let env = self.env.borrow();
+        env.find(key)
     }
 
     pub fn get(&self, key: String) -> MalType {
@@ -45,10 +59,8 @@ impl Environment {
     }
 
     pub fn get_inner(&self) -> Environment {
-        let mut new_env = self.clone();
-        let new_scope: EnvScope = HashMap::new();
-        new_env.scopes.push(new_scope);
-        new_env
+        let new_env_cont = EnvironmentContents { map: HashMap::new(), outer: Some(self.env.clone()) };
+        Environment { env: Rc::new(RefCell::new(new_env_cont)) }
     }
 
     pub fn bind_exprs(&mut self, binds: &[MalType], exprs: &[MalType]) -> MalType {
@@ -80,6 +92,7 @@ fn do_fn_special_atom(uneval_list: &[MalType], env: &Environment) -> MalType {
             //need to clone everything to prevent dangaling references
             let binds_clone = binds.clone();
             let function_body = uneval_list[2].clone();
+            println!("{:?}", function_body);
             let new_func = move |args: BuiltinFuncArgs| {
                 //clone again to gut ties to outer function body
                 let mut new_func_env = new_env.clone();
@@ -280,6 +293,65 @@ mod tests {
     use reader::read_str;
 
     #[test]
+    fn evironmental_test() {
+        let mut env = Environment::new();
+        init_environment(&mut env);
+
+        env.set("key1".to_string(), MalType::Int(1));
+        env.set("key2".to_string(), MalType::Int(2));
+        env.set("key3".to_string(), MalType::Int(3));
+
+        assert_eq!(env.get("key1".to_string()), MalType::Int(1));
+        assert_eq!(env.get("key2".to_string()), MalType::Int(2));
+        assert_eq!(env.get("key3".to_string()), MalType::Int(3));
+        assert_eq!(
+            env.get("won't find".to_string()),
+            MalType::Error("won\'t find not found.".to_string())
+        );
+
+        let inner = env.get_inner();
+        assert_eq!(inner.get("key1".to_string()), MalType::Int(1));
+        assert_eq!(
+            inner.get("won't find".to_string()),
+            MalType::Error("won\'t find not found.".to_string())
+        );
+
+        inner.set("key3".to_string(), MalType::Int(33));
+        assert_eq!(inner.get("key3".to_string()), MalType::Int(33));
+
+        let mut inner2 = inner.get_inner();
+        assert_eq!(inner2.get("key1".to_string()), MalType::Int(1));
+        assert_eq!(
+            inner2.get("won't find".to_string()),
+            MalType::Error("won\'t find not found.".to_string())
+        );
+
+        inner2.set("key3".to_string(), MalType::Int(333));
+        assert_eq!(inner2.get("key3".to_string()), MalType::Int(333));
+
+
+        let mut bind: Vec<MalType> = Vec::new();
+        let mut expr: Vec<MalType> = Vec::new();
+
+        bind.push(MalType::Symbol("a".to_string()));
+        bind.push(MalType::Symbol("b".to_string()));
+        bind.push(MalType::Symbol("c".to_string()));
+
+        expr.push(MalType::Int(666));
+        expr.push(MalType::Int(777));
+        expr.push(MalType::Int(888));
+
+        inner2.bind_exprs(&bind, &expr);
+        assert_eq!(inner2.get("a".to_string()), MalType::Int(666));
+        assert_eq!(inner2.get("b".to_string()), MalType::Int(777));
+        assert_eq!(inner2.get("c".to_string()), MalType::Int(888));
+
+        env.set("newSymbol".to_string(),MalType::Int(456));
+        assert_eq!(inner2.get("newSymbol".to_string()), MalType::Int(456));
+
+    }
+
+    #[test]
     fn eval_test_step2() {
         let mut env = Environment::new();
         init_environment(&mut env);
@@ -365,6 +437,7 @@ mod tests {
         tests.push(("(let* (a 5 b 6) [3 4 a [b 7] 8])", MalType::Vector(v1)));
 
         for tup in tests {
+            println!("{:?}",tup.0);
             let ast = read_str(tup.0);
             assert_eq!(eval(&ast, &mut env), tup.1);
         }
@@ -390,8 +463,14 @@ mod tests {
         tests.push(("(count (list 1 2 3))", MalType::Int(3)));
         tests.push(("(count (list))", MalType::Int(0)));
         tests.push(("(count nil)", MalType::Int(0)));
-        tests.push(("(if (> (count (list 1 2 3)) 3) \"yes\" \"no\")", MalType::Str("\"no\"".to_string())));
-        tests.push(("(if (>= (count (list 1 2 3)) 3) \"yes\" \"no\")", MalType::Str("\"yes\"".to_string())));
+        tests.push((
+            "(if (> (count (list 1 2 3)) 3) \"yes\" \"no\")",
+            MalType::Str("\"no\"".to_string()),
+        ));
+        tests.push((
+            "(if (>= (count (list 1 2 3)) 3) \"yes\" \"no\")",
+            MalType::Str("\"yes\"".to_string()),
+        ));
 
         //;; Testing if form
         tests.push(("(if true 7 8)", MalType::Int(7)));
@@ -454,8 +533,67 @@ mod tests {
         tests.push(("(= \"\" (list))", MalType::Bool(false)));
 
         //;; Testing builtin and user defined functions
+        tests.push(("(+ 1 2)", MalType::Int(3)));
+        tests.push(("( (fn* (a b) (+ b a)) 3 4)", MalType::Int(7)));
+        tests.push(("( (fn* () 4) )", MalType::Int(4)));
+        tests.push(("( (fn* (f x) (f x)) (fn* (a) (+ 1 a)) 7)", MalType::Int(8)));
 
-        
+        //;; Testing closures
+        tests.push(("( ( (fn* (a) (fn* (b) (+ a b))) 5) 7)", MalType::Int(12)));
+
+        eval(
+            &read_str("(def! gen-plus5 (fn* () (fn* (b) (+ 5 b))))"),
+            &mut env,
+        );
+        eval(&read_str("(def! plus5 (gen-plus5))"), &mut env);
+        tests.push(("(plus5 7)", MalType::Int(12)));
+
+        eval(
+            &read_str("(def! gen-plusX (fn* (x) (fn* (b) (+ x b))))"),
+            &mut env,
+        );
+        eval(&read_str("(def! plus7 (gen-plusX 7))"), &mut env);
+        tests.push(("(plus7 8)", MalType::Int(15)));
+
+        //;; Testing do form
+        tests.push(("(do (prn \"prn output1\"))", MalType::Nil));
+        tests.push(("(do (prn \"prn output2\") 7)", MalType::Int(7)));
+        tests.push((
+            "(do (prn \"prn output1\") (prn \"prn output2\") (+ 1 2))",
+            MalType::Int(3),
+        ));
+        tests.push(("(do (def! a 6) 7 (+ a 8))", MalType::Int(14)));
+        tests.push(("a", MalType::Int(6)));
+
+        //;; Testing special form case-sensitivity
+        eval(&read_str("(def! DO (fn* (a) 7))"), &mut env);
+        tests.push(("(DO 3)", MalType::Int(7)));
+
+        //;; Testing recursive sumdown function
+        eval(
+            &read_str("(def! sumdown (fn* (N) (if (> N 0) (+ N (sumdown  (- N 1))) 0)))"),
+            &mut env,
+        );
+        tests.push(("(sumdown 1)", MalType::Int(1)));
+        tests.push(("(sumdown 2)", MalType::Int(3)));
+        tests.push(("(sumdown 6)", MalType::Int(21)));
+
+        //;; Testing recursive fibonacci function
+        eval(
+            &read_str("(def! fib (fn* (N) (if (= N 0) 1 (if (= N 1) 1 (+ (fib (- N 1)) (fib (- N 2)))))))"),
+            &mut env,
+        );
+        tests.push(("(fib 1)", MalType::Int(1)));
+        tests.push(("(fib 2)", MalType::Int(2)));
+        //tests.push(("(fib 4)", MalType::Int(5)));
+
+/*
+(fib 4)
+;=>5
+;;; Too slow for bash, erlang, make and miniMAL
+;;;(fib 10)
+;;;;=>89
+*/
         for tup in tests {
             let ast = read_str(tup.0);
             assert_eq!(eval(&ast, &mut env), tup.1);
