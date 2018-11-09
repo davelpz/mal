@@ -1,7 +1,7 @@
 use printer::pr_str;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::RefCell;
 use types::BuiltinFuncArgs;
 use types::MalType;
 
@@ -11,7 +11,7 @@ pub type EnvScope = HashMap<String, MalType>;
 #[derive(Debug, Clone)]
 pub struct EnvironmentContents {
     pub map: EnvScope,
-    pub outer: Option<Rc<RefCell<EnvironmentContents>>>
+    pub outer: Option<Rc<RefCell<EnvironmentContents>>>,
 }
 
 impl EnvironmentContents {
@@ -30,19 +30,22 @@ impl EnvironmentContents {
 
 #[derive(Debug, Clone)]
 pub struct Environment {
-    pub env: Rc<RefCell<EnvironmentContents>>
+    pub env: Rc<RefCell<EnvironmentContents>>,
 }
 
 impl Environment {
     pub fn new() -> Environment {
         Environment {
-            env: Rc::new(RefCell::new(EnvironmentContents { map: HashMap::new(), outer: None }))
+            env: Rc::new(RefCell::new(EnvironmentContents {
+                map: HashMap::new(),
+                outer: None,
+            })),
         }
     }
 
     pub fn set(&self, key: String, value: MalType) -> MalType {
         let c = value.clone();
-        self.env.borrow_mut().map.insert(key,value);
+        self.env.borrow_mut().map.insert(key, value);
         c
     }
 
@@ -59,8 +62,13 @@ impl Environment {
     }
 
     pub fn get_inner(&self) -> Environment {
-        let new_env_cont = EnvironmentContents { map: HashMap::new(), outer: Some(self.env.clone()) };
-        Environment { env: Rc::new(RefCell::new(new_env_cont)) }
+        let new_env_cont = EnvironmentContents {
+            map: HashMap::new(),
+            outer: Some(self.env.clone()),
+        };
+        Environment {
+            env: Rc::new(RefCell::new(new_env_cont)),
+        }
     }
 
     pub fn bind_exprs(&mut self, binds: &[MalType], exprs: &[MalType]) -> MalType {
@@ -82,20 +90,21 @@ impl Environment {
 }
 
 fn do_fn_special_atom(uneval_list: &[MalType], env: &Environment) -> MalType {
-    //create new clone environment, to cut ties to passed in env
-    //this will cause issue I think
-    let new_env = env.get_inner();
-
     //uneval_list should be a List type
     match &uneval_list[1] {
         MalType::List(binds) | MalType::Vector(binds) => {
             //need to clone everything to prevent dangaling references
             let binds_clone = binds.clone();
             let function_body = uneval_list[2].clone();
-            println!("{:?}", function_body);
+
+            //create new clone environment, to cut ties to passed in env
+            let new_env = env.clone();
+
+            //println!("{:?}", function_body);
             let new_func = move |args: BuiltinFuncArgs| {
+                //println!("do_fn_special_atom: {:?}", args);
                 //clone again to gut ties to outer function body
-                let mut new_func_env = new_env.clone();
+                let mut new_func_env = new_env.get_inner();
 
                 //bind function arguments
                 new_func_env.bind_exprs(&binds_clone, &args);
@@ -329,7 +338,6 @@ mod tests {
         inner2.set("key3".to_string(), MalType::Int(333));
         assert_eq!(inner2.get("key3".to_string()), MalType::Int(333));
 
-
         let mut bind: Vec<MalType> = Vec::new();
         let mut expr: Vec<MalType> = Vec::new();
 
@@ -346,9 +354,8 @@ mod tests {
         assert_eq!(inner2.get("b".to_string()), MalType::Int(777));
         assert_eq!(inner2.get("c".to_string()), MalType::Int(888));
 
-        env.set("newSymbol".to_string(),MalType::Int(456));
+        env.set("newSymbol".to_string(), MalType::Int(456));
         assert_eq!(inner2.get("newSymbol".to_string()), MalType::Int(456));
-
     }
 
     #[test]
@@ -437,7 +444,7 @@ mod tests {
         tests.push(("(let* (a 5 b 6) [3 4 a [b 7] 8])", MalType::Vector(v1)));
 
         for tup in tests {
-            println!("{:?}",tup.0);
+            println!("{:?}", tup.0);
             let ast = read_str(tup.0);
             assert_eq!(eval(&ast, &mut env), tup.1);
         }
@@ -585,15 +592,25 @@ mod tests {
         );
         tests.push(("(fib 1)", MalType::Int(1)));
         tests.push(("(fib 2)", MalType::Int(2)));
-        //tests.push(("(fib 4)", MalType::Int(5)));
+        tests.push(("(fib 4)", MalType::Int(5)));
+        tests.push(("(fib 10)", MalType::Int(89)));
 
-/*
-(fib 4)
-;=>5
-;;; Too slow for bash, erlang, make and miniMAL
-;;;(fib 10)
-;;;;=>89
-*/
+        //;; Testing language defined not function
+        tests.push(("(not false)", MalType::Bool(true)));
+        tests.push(("(not nil)", MalType::Bool(true)));
+        tests.push(("(not true)", MalType::Bool(false)));
+        tests.push(("(not \"a\")", MalType::Bool(false)));
+        tests.push(("(not 0)", MalType::Bool(false)));
+
+        //;; Testing string quoting
+        tests.push(("\"\"", MalType::Str("\"\"".to_string())));
+        tests.push(("\"abc\"", MalType::Str("\"abc\"".to_string())));
+        tests.push(("\"abc  def\"", MalType::Str("\"abc  def\"".to_string())));
+        tests.push(("\"\\\"\"", MalType::Str("\"\"\"".to_string())));
+        tests.push(("\"abc\ndef\nghi\"", MalType::Str("\"abc\ndef\nghi\"".to_string())));
+        tests.push(("\"abc\\\\def\\\\ghi\"", MalType::Str("\"abc\\def\\ghi\"".to_string())));
+        tests.push(("\"\\\\n\"", MalType::Str("\"\\n\"".to_string())));
+
         for tup in tests {
             let ast = read_str(tup.0);
             assert_eq!(eval(&ast, &mut env), tup.1);

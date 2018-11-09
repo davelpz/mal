@@ -1,10 +1,10 @@
 use eval::Environment;
 use printer;
+use rep;
 use std::rc::Rc;
 use types::BuiltinFunc;
 use types::BuiltinFuncArgs;
 use types::MalType;
-use ::rep;
 
 pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
     let mut ns: Vec<(&str, Rc<Box<BuiltinFunc>>)> = Vec::new();
@@ -35,7 +35,6 @@ pub fn init_environment(env: &mut Environment) {
         env.set(tup.0.to_string(), MalType::Func(tup.1));
     }
 
-    
     rep("(def! not (fn* (a) (if a false true)))", env);
 }
 
@@ -114,6 +113,8 @@ fn count_builtin(args: BuiltinFuncArgs) -> MalType {
 }
 
 fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
+    //println!("equals_builtin_helper: {:?}   {:?}", a, b);
+
     match a {
         MalType::Bool(av) => match b {
             MalType::Bool(bv) if av == bv => true,
@@ -264,8 +265,11 @@ fn ge_builtin(args: BuiltinFuncArgs) -> MalType {
 }
 
 fn addition_builtin(args: BuiltinFuncArgs) -> MalType {
+    //println!("addition_builtin: {:?}", args);
+
     //Check to make sure we have only numeric types
     if !all_numeric(&args) {
+        //println!("{:?}", args);
         return MalType::Error("Wrong types for +".to_string());
     }
 
@@ -292,6 +296,7 @@ fn addition_builtin(args: BuiltinFuncArgs) -> MalType {
 }
 
 fn subtraction_builtin(args: BuiltinFuncArgs) -> MalType {
+    //println!("subtraction_builtin: {:?}", args);    
     //Check to make sure we have only numeric types
     if !all_numeric(&args) {
         return MalType::Error("Wrong types for -".to_string());
