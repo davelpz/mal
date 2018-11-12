@@ -163,27 +163,6 @@ fn do_do_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType
     }
 }
 
-fn do_if_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
-    let condition = eval(&uneval_list[1], env);
-    match condition {
-        MalType::Error(_) => condition,
-        MalType::Nil | MalType::Bool(false) => {
-            if uneval_list.len() > 3 {
-                eval(&uneval_list[3], env)
-            } else {
-                MalType::Nil
-            }
-        }
-        _ => {
-            if uneval_list.len() > 2 {
-                eval(&uneval_list[2], env)
-            } else {
-                MalType::Error("Not enough arguments to if function".to_string())
-            }
-        }
-    }
-}
-
 fn new_let_env(bind_list: &MalType, env: &mut Environment) -> Option<Environment> {
     let mut new_env = env.get_inner();
     match bind_list {
@@ -253,7 +232,23 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                 } else if s == "do" {
                     do_do_special_atom(uneval_list, env)
                 } else if s == "if" {
-                    do_if_special_atom(uneval_list, env)
+                    match eval(&uneval_list[1], env) {
+                        MalType::Error(x) => MalType::Error(x),
+                        MalType::Nil | MalType::Bool(false) => {
+                            if uneval_list.len() > 3 {
+                                eval(&uneval_list[3], env)
+                            } else {
+                                MalType::Nil
+                            }
+                        }
+                        _ => {
+                            if uneval_list.len() > 2 {
+                                eval(&uneval_list[2], env)
+                            } else {
+                                MalType::Nil
+                            }
+                        }
+                    }
                 } else if s == "fn*" {
                     do_fn_special_atom(uneval_list, env)
                 } else {
