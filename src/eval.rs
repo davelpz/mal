@@ -184,16 +184,12 @@ fn do_if_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType
     }
 }
 
-fn do_let_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
+fn new_let_env(bind_list: &MalType, env: &mut Environment) -> Option<Environment> {
     let mut new_env = env.get_inner();
-    let second = &uneval_list[1];
-
-    match second {
+    match bind_list {
         MalType::List(l) | MalType::Vector(l) => {
             if l.len() % 2 == 1 {
-                return MalType::Error(
-                    "Error: let*, can't set, odd number in set list.".to_string(),
-                );
+                return None;
             }
             for chunk in l.chunks(2) {
                 if !chunk.is_empty() {
@@ -202,24 +198,22 @@ fn do_let_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalTyp
                             let three = eval(&chunk[1], &mut new_env);
                             match three {
                                 MalType::Error(_) => {
-                                    return three;
+                                    return None;
                                 }
                                 _ => {
                                     new_env.set(sym.to_string(), three);
                                 }
                             }
                         }
-                        _ => {
-                            return MalType::Error("Error: let*, can't set, not symbol.".to_string())
-                        }
+                        _ => return None,
                     }
                 }
             }
         }
-        _ => return MalType::Error("Error: let*, second argument is not a list.".to_string()),
+        _ => return None,
     }
 
-    eval(&uneval_list[2], &mut new_env)
+    Some(new_env)
 }
 
 fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
@@ -238,26 +232,6 @@ fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
     }
 }
 
-fn do_special_atoms(
-    symbol: &str,
-    uneval_list: &[MalType],
-    env: &mut Environment,
-) -> Option<MalType> {
-    if symbol == "def!" {
-        Some(do_def_special_atom(uneval_list, env))
-    } else if symbol == "let*" {
-        Some(do_let_special_atom(uneval_list, env))
-    } else if symbol == "do" {
-        Some(do_do_special_atom(uneval_list, env))
-    } else if symbol == "if" {
-        Some(do_if_special_atom(uneval_list, env))
-    } else if symbol == "fn*" {
-        Some(do_fn_special_atom(uneval_list, env))
-    } else {
-        None
-    }
-}
-
 pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
     match t {
         MalType::Error(_) => t.clone(),
@@ -268,8 +242,20 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                 //don't think this is needed
                 MalType::Error(pr_str(first, true).to_string())
             } else if let MalType::Symbol(s) = first {
-                if let Some(typ) = do_special_atoms(s, uneval_list, env) {
-                    typ
+                if s == "def!" {
+                    do_def_special_atom(uneval_list, env)
+                } else if s == "let*" {
+                    if let Some(ref mut new_let_env) = new_let_env(&uneval_list[1], env) {
+                        eval(&uneval_list[2], new_let_env)
+                    } else {
+                        MalType::Error("Error binding let vars".to_string())
+                    }
+                } else if s == "do" {
+                    do_do_special_atom(uneval_list, env)
+                } else if s == "if" {
+                    do_if_special_atom(uneval_list, env)
+                } else if s == "fn*" {
+                    do_fn_special_atom(uneval_list, env)
                 } else {
                     eval_list(t, env)
                 }
@@ -287,7 +273,7 @@ pub fn eval_ast(t: &MalType, env: &mut Environment) -> MalType {
         MalType::Symbol(s) => {
             let lookup = env.get(s.to_string());
             match lookup {
-                MalType::Func(f) => MalType::Func(f.clone()),
+                //MalType::Func(f) => MalType::Func(f.clone()),
                 MalType::Error(_) => MalType::Error(format!("{} not found.", s)),
                 _ => lookup,
             }
