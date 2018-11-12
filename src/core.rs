@@ -80,11 +80,11 @@ fn println_builtin(args: BuiltinFuncArgs) -> MalType {
 }
 
 fn pr_str_builtin(args: BuiltinFuncArgs) -> MalType {
-    MalType::Str(format!("\"{}\"", prn_helper(args, true, " ")))
+    MalType::Str(format!("{}", prn_helper(args, true, " ")))
 }
 
 fn str_builtin(args: BuiltinFuncArgs) -> MalType {
-    MalType::Str(format!("\"{}\"", prn_helper(args, false, "")))
+    MalType::Str(format!("{}", prn_helper(args, false, "")))
 }
 
 fn list_builtin(args: BuiltinFuncArgs) -> MalType {
@@ -101,6 +101,7 @@ fn list_test_builtin(args: BuiltinFuncArgs) -> MalType {
 fn empty_test_builtin(args: BuiltinFuncArgs) -> MalType {
     match args.get(0) {
         Some(MalType::List(x)) if x.is_empty() => MalType::Bool(true),
+        Some(MalType::Vector(x)) if x.is_empty() => MalType::Bool(true),
         _ => MalType::Bool(false),
     }
 }
@@ -108,6 +109,7 @@ fn empty_test_builtin(args: BuiltinFuncArgs) -> MalType {
 fn count_builtin(args: BuiltinFuncArgs) -> MalType {
     match args.get(0) {
         Some(MalType::List(x)) => MalType::Int(x.len() as i64),
+        Some(MalType::Vector(x)) => MalType::Int(x.len() as i64),
         _ => MalType::Int(0),
     }
 }
@@ -153,14 +155,14 @@ fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
             _ => false,
         },
         MalType::List(av) => match b {
-            MalType::List(bv) => {
+            MalType::List(bv) | MalType::Vector(bv) => {
                 (av.len() == bv.len())
                     && (av.iter().zip(bv).all(|(x, y)| equals_builtin_helper(x, y)))
             }
             _ => false,
         },
         MalType::Vector(av) => match b {
-            MalType::Vector(bv) => {
+            MalType::Vector(bv) | MalType::List(bv) => {
                 (av.len() == bv.len())
                     && (av.iter().zip(bv).all(|(x, y)| equals_builtin_helper(x, y)))
             }
@@ -296,7 +298,7 @@ fn addition_builtin(args: BuiltinFuncArgs) -> MalType {
 }
 
 fn subtraction_builtin(args: BuiltinFuncArgs) -> MalType {
-    //println!("subtraction_builtin: {:?}", args);    
+    //println!("subtraction_builtin: {:?}", args);
     //Check to make sure we have only numeric types
     if !all_numeric(&args) {
         return MalType::Error("Wrong types for -".to_string());

@@ -379,7 +379,7 @@ mod tests {
         let result_vec: Vec<MalType> = vec![MalType::Int(1), MalType::Int(2), MalType::Int(3)];
         tests.push(("[1 2 (+ 1 2)]", MalType::Vector(result_vec)));
 
-        let result_vec: Vec<MalType> = vec![MalType::Str("\"a\"".to_string()), MalType::Int(15)];
+        let result_vec: Vec<MalType> = vec![MalType::Str("a".to_string()), MalType::Int(15)];
         tests.push(("{\"a\" (+ 7 8)}", MalType::Map(result_vec)));
 
         let result_vec: Vec<MalType> = vec![MalType::KeyWord(":a".to_string()), MalType::Int(15)];
@@ -472,11 +472,11 @@ mod tests {
         tests.push(("(count nil)", MalType::Int(0)));
         tests.push((
             "(if (> (count (list 1 2 3)) 3) \"yes\" \"no\")",
-            MalType::Str("\"no\"".to_string()),
+            MalType::Str("no".to_string()),
         ));
         tests.push((
             "(if (>= (count (list 1 2 3)) 3) \"yes\" \"no\")",
-            MalType::Str("\"yes\"".to_string()),
+            MalType::Str("yes".to_string()),
         ));
 
         //;; Testing if form
@@ -603,15 +603,119 @@ mod tests {
         tests.push(("(not 0)", MalType::Bool(false)));
 
         //;; Testing string quoting
-        tests.push(("\"\"", MalType::Str("\"\"".to_string())));
-        tests.push(("\"abc\"", MalType::Str("\"abc\"".to_string())));
-        tests.push(("\"abc  def\"", MalType::Str("\"abc  def\"".to_string())));
-        tests.push(("\"\\\"\"", MalType::Str("\"\"\"".to_string())));
-        tests.push(("\"abc\ndef\nghi\"", MalType::Str("\"abc\ndef\nghi\"".to_string())));
-        tests.push(("\"abc\\\\def\\\\ghi\"", MalType::Str("\"abc\\def\\ghi\"".to_string())));
-        tests.push(("\"\\\\n\"", MalType::Str("\"\\n\"".to_string())));
+        tests.push(("\"\"", MalType::Str("".to_string())));
+        tests.push(("\"abc\"", MalType::Str("abc".to_string())));
+        tests.push(("\"abc  def\"", MalType::Str("abc  def".to_string())));
+        tests.push(("\"\\\"\"", MalType::Str("\"".to_string())));
+        tests.push(("\"abc\ndef\nghi\"", MalType::Str("abc\ndef\nghi".to_string())));
+        tests.push(("\"abc\\\\def\\\\ghi\"", MalType::Str("abc\\def\\ghi".to_string())));
+        tests.push(("\"\\\\n\"", MalType::Str("\\n".to_string())));
+
+        //;; Testing pr-str
+        tests.push(("(pr-str)", MalType::Str("".to_string())));
+        tests.push(("(pr-str \"\")", MalType::Str("".to_string())));
+        tests.push(("(pr-str \"abc\")", MalType::Str("\"abc\"".to_string())));
+        tests.push(("(pr-str \"abc def\" \"ghi jkl\")", MalType::Str("\"abc def\" \"ghi jkl\"".to_string())));
+        tests.push(("(pr-str \"\\\"\")", MalType::Str("\"\\\"\"".to_string())));
+        tests.push(("(pr-str (list 1 2 \"abc\" \"\\\"\") \"def\")", MalType::Str("(1 2 \"abc\" \"\\\"\") \"def\"".to_string())));
+        tests.push(("(pr-str \"abc\\ndef\\nghi\")", MalType::Str("\"abc\\ndef\\nghi\"".to_string())));
+        tests.push(("(pr-str \"abc\\\\def\\\\ghi\")", MalType::Str("\"abc\\\\def\\\\ghi\"".to_string())));
+        tests.push(("(pr-str (list))", MalType::Str("()".to_string())));
+
+        //;; Testing str
+        tests.push(("(str)", MalType::Str("".to_string())));
+        tests.push(("(str \"\")", MalType::Str("".to_string())));
+        tests.push(("(str \"abc\")", MalType::Str("abc".to_string())));
+        tests.push(("(str \"\\\"\")", MalType::Str("\"".to_string())));
+        tests.push(("(str 1 \"abc\" 3)", MalType::Str("1abc3".to_string())));
+        tests.push(("(str \"abc  def\" \"ghi jkl\")", MalType::Str("abc  defghi jkl".to_string())));
+        tests.push(("(str \"abc\\\\def\\\\ghi\")", MalType::Str("abc\\def\\ghi".to_string())));
+        tests.push(("(str (list 1 2 \"abc\" \"\\\"\") \"def\")", MalType::Str("(1 2 abc \")def".to_string())));
+        tests.push(("(str (list))", MalType::Str("()".to_string())));
+
+        //;; Testing prn
+        tests.push(("(prn)", MalType::Nil));
+        tests.push(("(prn \"\")", MalType::Nil));
+        tests.push(("(prn \"abc\")", MalType::Nil));
+        tests.push(("(prn \"abc  def\" \"ghi jkl\")", MalType::Nil));
+        tests.push(("(prn \"\\\"\")", MalType::Nil));
+        tests.push(("(prn \"abc\ndef\nghi\")", MalType::Nil));
+        tests.push(("(prn \"abc\\def\\ghi\")", MalType::Nil));
+        tests.push(("(prn (list 1 2 \"abc\" \"\\\"\") \"def\")", MalType::Nil));
+
+        //;; Testing println
+        tests.push(("(println)", MalType::Nil));
+        tests.push(("(println \"\")", MalType::Nil));
+        tests.push(("(println \"abc\")", MalType::Nil));
+        tests.push(("(println \"abc  def\" \"ghi jkl\")", MalType::Nil));
+        tests.push(("(println \"\\\"\")", MalType::Nil));
+        tests.push(("(println \"abc\ndef\nghi\")", MalType::Nil));
+        tests.push(("(println \"abc\\def\\ghi\")", MalType::Nil));
+        tests.push(("(println (list 1 2 \"abc\" \"\\\"\") \"def\")", MalType::Nil));
+
+        //;; Testing keywords
+        tests.push(("(= :abc :abc)", MalType::Bool(true)));
+        tests.push(("(= :abc :def)", MalType::Bool(false)));
+        tests.push(("(= :abc \":abc\")", MalType::Bool(false)));
+
+        //;; Testing vector truthiness
+        tests.push(("(if [] 7 8)", MalType::Int(7)));
+
+        //;; Testing vector printing
+        tests.push(("(pr-str [1 2 \"abc\" \"\\\"\"] \"def\")", MalType::Str("[1 2 \"abc\" \"\\\"\"] \"def\"".to_string())));
+        tests.push(("(pr-str [])", MalType::Str("[]".to_string())));
+        tests.push(("(str [1 2 \"abc\" \"\\\"\"] \"def\")", MalType::Str("[1 2 abc \"]def".to_string())));
+        tests.push(("(str [])", MalType::Str("[]".to_string())));
+
+        //;; Testing vector functions
+        tests.push(("(count [1 2 3])", MalType::Int(3)));
+        tests.push(("(empty? [1 2 3])", MalType::Bool(false)));
+        tests.push(("(empty? [])", MalType::Bool(true)));
+        tests.push(("(list? [4 5 6])", MalType::Bool(false)));
+
+        //;; Testing vector equality
+        tests.push(("(= [] (list))", MalType::Bool(true)));
+        tests.push(("(= [7 8] [7 8])", MalType::Bool(true)));
+        tests.push(("(= (list 1 2) [1 2])", MalType::Bool(true)));
+        tests.push(("(= (list 1) [])", MalType::Bool(false)));
+        tests.push(("(= [] [1])", MalType::Bool(false)));
+        tests.push(("(= 0 [])", MalType::Bool(false)));
+        tests.push(("(= [] 0)", MalType::Bool(false)));
+        tests.push(("(= [] \"\")", MalType::Bool(false)));
+        tests.push(("(= \"\" [])", MalType::Bool(false)));
+
+        //;; Testing vector parameter lists
+        tests.push(("( (fn* [] 4) )", MalType::Int(4)));
+        tests.push(("( (fn* [f x] (f x)) (fn* [a] (+ 1 a)) 7)", MalType::Int(8)));
+
+        //;; Nested vector/list equality
+        tests.push(("(= [(list)] (list []))", MalType::Bool(true)));
+        tests.push(("(= [1 2 (list 3 4 [5 6])] (list 1 2 [3 4 (list 5 6)]))", MalType::Bool(true)));
+
+/*
+;; Testing variable length arguments
+
+( (fn* (& more) (count more)) 1 2 3)
+;=>3
+( (fn* (& more) (list? more)) 1 2 3)
+;=>true
+( (fn* (& more) (count more)) 1)
+;=>1
+( (fn* (& more) (count more)) )
+;=>0
+( (fn* (& more) (list? more)) )
+;=>true
+( (fn* (a & more) (count more)) 1 2 3)
+;=>2
+( (fn* (a & more) (count more)) 1)
+;=>0
+( (fn* (a & more) (list? more)) 1)
+;=>true
+
+*/
 
         for tup in tests {
+            println!("{:?}",tup.0);
             let ast = read_str(tup.0);
             assert_eq!(eval(&ast, &mut env), tup.1);
         }

@@ -80,7 +80,7 @@ fn parsable<T: FromStr>(s: &str) -> bool {
 
 fn unescape_str(s: &str) -> String {
     let re: Regex = Regex::new(r#"\\(.)"#).unwrap();
-    re.replace_all(&s, |caps: &Captures| {
+    let temp = re.replace_all(&s, |caps: &Captures| {
         if &caps[1] == "n" {
             "\n"
         } else if &caps[1] == "t" {
@@ -90,7 +90,12 @@ fn unescape_str(s: &str) -> String {
         } else {
             &caps[1]
         }.to_string()
-    }).to_string()
+    });
+    let l = temp.len();
+
+    //println!("unescape_str: {}",temp);
+
+    temp[1..(l-1)].to_string()
 }
 
 fn read_atom(reader: &mut Reader) -> MalType {
@@ -249,7 +254,7 @@ mod tests {
         assert_eq!(MalType::Float(234.3), read_atom(&mut r));
         assert_eq!(MalType::KeyWord(":kw1".to_string()), read_atom(&mut r));
         assert_eq!(MalType::Nil, read_atom(&mut r));
-        assert_eq!(MalType::Str("\"boo\"".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::Str("boo".to_string()), read_atom(&mut r));
         assert_eq!(MalType::Bool(true), read_atom(&mut r));
         assert_eq!(MalType::Bool(false), read_atom(&mut r));
         assert_eq!(MalType::Symbol(")".to_string()), read_atom(&mut r));
@@ -268,7 +273,7 @@ mod tests {
         v1.push(MalType::Symbol("-".to_string()));
         v1.push(MalType::List(v2));
         v1.push(MalType::Float(234.3));
-        v1.push(MalType::Str("\"boo\"".to_string()));
+        v1.push(MalType::Str("boo".to_string()));
         v1.push(MalType::KeyWord(":akeyword".to_string()));
 
         assert_eq!(MalType::List(v1), read_form(&mut r));
@@ -312,7 +317,7 @@ mod tests {
         v2.push(MalType::Int(2));
         v2.push(MalType::Int(3));
 
-        v3.push(MalType::Str("\"a\"".to_string()));
+        v3.push(MalType::Str("a".to_string()));
         v3.push(MalType::Int(1));
 
         v1.push(MalType::Symbol("with-meta".to_string()));
@@ -332,7 +337,7 @@ mod tests {
         v1.push(MalType::Symbol("-".to_string()));
         v1.push(MalType::List(v2));
         v1.push(MalType::Float(234.3));
-        v1.push(MalType::Str("\"boo\"".to_string()));
+        v1.push(MalType::Str("boo".to_string()));
 
         assert_eq!(MalType::List(v1), read_str("(- (+ 1 a) 234.3 \"boo\")"));
     }

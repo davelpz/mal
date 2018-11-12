@@ -3,13 +3,13 @@ use types::MalType;
 fn escape(s: &str) -> String {
     let len = s.len();
 
-    if len > 2 {
+    if len > 0 {
         let mut result = "\"".to_string();
-        let fixed = s[1..(len - 1)]
+        let fixed = s
+            .replace("\\", "\\\\")
             .replace("\n", "\\n")
             .replace("\t", "\\t")
-            .replace("\"", "\\\"")
-        .replace("\\", "\\\\"); //must revisit
+            .replace("\"", "\\\"");
         result.push_str(&fixed);
         result.push('"');
 
