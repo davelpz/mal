@@ -162,7 +162,9 @@ fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
     }
 }
 
-pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
+pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
+    let mut new_env : Environment = env.clone();
+
     loop {
         match t {
             MalType::Error(_) => return t.clone(),
@@ -181,11 +183,9 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                             _ => return env.set(second.get_symbol_string(), third),
                         }
                     } else if s == "let*" {
-                        if let Some(ref mut new_let_env) = new_let_env(&uneval_list[1], env) {
-                            return eval(&uneval_list[2], new_let_env)
-                        } else {
-                            return MalType::Error("Error binding let vars".to_string())
-                        }
+                        new_env = new_let_env(&uneval_list[1], &mut new_env).unwrap();
+                        //env = &mut new_env;
+                        t = &uneval_list[2];
                     } else if s == "do" {
                         if let MalType::List(l) =
                             eval_ast(&MalType::List(uneval_list[1..].to_vec()), env)
