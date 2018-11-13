@@ -114,55 +114,6 @@ impl Environment {
     }
 }
 
-fn do_fn_special_atom(uneval_list: &[MalType], env: &Environment) -> MalType {
-    //uneval_list should be a List type
-    match &uneval_list[1] {
-        MalType::List(binds) | MalType::Vector(binds) => {
-            //need to clone everything to prevent dangaling references
-            let binds_clone = binds.clone();
-            let function_body = uneval_list[2].clone();
-
-            //create new clone environment, to cut ties to passed in env
-            let new_env = env.clone();
-
-            //println!("{:?}", function_body);
-            let new_func = move |args: BuiltinFuncArgs| {
-                //println!("do_fn_special_atom: {:?}", args);
-                //clone again to gut ties to outer function body
-                let mut new_func_env = new_env.get_inner();
-
-                //bind function arguments
-                new_func_env.bind_exprs(&binds_clone, &args);
-
-                //finally call the function
-                eval(&function_body, &mut new_func_env)
-            };
-            MalType::Func(Rc::new(Box::new(new_func)))
-        }
-        _ => MalType::Error(format!(
-            "bind list is not a list: {} ",
-            pr_str(&uneval_list[1], true)
-        )),
-    }
-}
-
-fn do_def_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
-    let second = &uneval_list[1];
-    let third = eval(&uneval_list[2], env);
-    match third {
-        MalType::Error(_) => third,
-        _ => env.set(second.get_symbol_string(), third),
-    }
-}
-
-fn do_do_special_atom(uneval_list: &[MalType], env: &mut Environment) -> MalType {
-    if let MalType::List(l) = eval_ast(&MalType::List(uneval_list[1..].to_vec()), env) {
-        l.last().unwrap().clone()
-    } else {
-        MalType::Error("Internal Error: eval_ast of list did not return a list".to_string())
-    }
-}
-
 fn new_let_env(bind_list: &MalType, env: &mut Environment) -> Option<Environment> {
     let mut new_env = env.get_inner();
     match bind_list {
@@ -222,7 +173,12 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                 MalType::Error(pr_str(first, true).to_string())
             } else if let MalType::Symbol(s) = first {
                 if s == "def!" {
-                    do_def_special_atom(uneval_list, env)
+                    let second = &uneval_list[1];
+                    let third = eval(&uneval_list[2], env);
+                    match third {
+                        MalType::Error(_) => third,
+                        _ => env.set(second.get_symbol_string(), third),
+                    }
                 } else if s == "let*" {
                     if let Some(ref mut new_let_env) = new_let_env(&uneval_list[1], env) {
                         eval(&uneval_list[2], new_let_env)
@@ -230,7 +186,15 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                         MalType::Error("Error binding let vars".to_string())
                     }
                 } else if s == "do" {
-                    do_do_special_atom(uneval_list, env)
+                    if let MalType::List(l) =
+                        eval_ast(&MalType::List(uneval_list[1..].to_vec()), env)
+                    {
+                        l.last().unwrap().clone()
+                    } else {
+                        MalType::Error(
+                            "Internal Error: eval_ast of list did not return a list".to_string(),
+                        )
+                    }
                 } else if s == "if" {
                     match eval(&uneval_list[1], env) {
                         MalType::Error(x) => MalType::Error(x),
@@ -250,7 +214,36 @@ pub fn eval(t: &MalType, env: &mut Environment) -> MalType {
                         }
                     }
                 } else if s == "fn*" {
-                    do_fn_special_atom(uneval_list, env)
+                    match &uneval_list[1] {
+                        MalType::List(binds) | MalType::Vector(binds) => {
+                            //need to clone everything to prevent dangaling references
+                            let binds_clone = binds.clone();
+                            let function_body = uneval_list[2].clone();
+
+                            //create new clone environment, to cut ties to passed in env
+                            let new_env = env.clone();
+
+                            //println!("{:?}", function_body);
+                            let new_func = move |args: BuiltinFuncArgs| {
+                                //println!("do_fn_special_atom: {:?}", args);
+                                //clone again to gut ties to outer function body
+                                let mut new_func_env = new_env.get_inner();
+
+                                //bind function arguments
+                                new_func_env.bind_exprs(&binds_clone, &args);
+
+                                //finally call the function
+                                eval(&function_body, &mut new_func_env)
+                            };
+                            MalType::Func(Rc::new(Box::new(new_func)))
+                        }
+                        _ => MalType::Error(format!(
+                            "bind list is not a list: {} ",
+                            pr_str(&uneval_list[1], true)
+                        )),
+                    }
+
+                //do_fn_special_atom(uneval_list, env)
                 } else {
                     eval_list(t, env)
                 }
