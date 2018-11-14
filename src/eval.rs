@@ -195,10 +195,10 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                         t = &uneval_list[2];
                         //return eval(&uneval_list[2], &mut new_let_env(&uneval_list[1], &mut eval_env).unwrap())
                     } else if s == "do" {
-                        if let MalType::List(l) =
-                            eval_ast(&MalType::List(uneval_list[1..].to_vec()), &mut eval_env)
+                        if let MalType::List(_) =
+                            eval_ast(&MalType::List(uneval_list[1..uneval_list.len()-1].to_vec()), &mut eval_env)
                         {
-                            return l.last().unwrap().clone()
+                            t = &uneval_list[uneval_list.len()-1];
                         } else {
                             return MalType::Error(
                                 "Internal Error: eval_ast of list did not return a list"
