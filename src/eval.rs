@@ -28,9 +28,17 @@ impl EnvironmentContents {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Environment {
     pub env: Rc<RefCell<EnvironmentContents>>,
+}
+
+impl Clone for Environment {
+    fn clone(&self) -> Environment {
+         Environment {
+             env: self.env.clone()
+         }
+    }
 }
 
 impl Environment {
@@ -163,7 +171,7 @@ fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
 }
 
 pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
-    let mut new_env : Environment = env.clone();
+    let mut eval_env : Environment = env.clone();
 
     loop {
         match t {
@@ -177,18 +185,18 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                 } else if let MalType::Symbol(s) = first {
                     if s == "def!" {
                         let second = &uneval_list[1];
-                        let third = eval(&uneval_list[2], env);
+                        let third = eval(&uneval_list[2], &mut eval_env);
                         match third {
                             MalType::Error(_) => return third,
-                            _ => return env.set(second.get_symbol_string(), third),
+                            _ => return eval_env.set(second.get_symbol_string(), third),
                         }
                     } else if s == "let*" {
-                        new_env = new_let_env(&uneval_list[1], &mut new_env).unwrap();
-                        //env = &mut new_env;
+                        eval_env = new_let_env(&uneval_list[1], &mut eval_env).unwrap();
                         t = &uneval_list[2];
+                        //return eval(&uneval_list[2], &mut new_let_env(&uneval_list[1], &mut eval_env).unwrap())
                     } else if s == "do" {
                         if let MalType::List(l) =
-                            eval_ast(&MalType::List(uneval_list[1..].to_vec()), env)
+                            eval_ast(&MalType::List(uneval_list[1..].to_vec()), &mut eval_env)
                         {
                             return l.last().unwrap().clone()
                         } else {
@@ -198,18 +206,18 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                             )
                         }
                     } else if s == "if" {
-                        match eval(&uneval_list[1], env) {
+                        match eval(&uneval_list[1], &mut eval_env) {
                             MalType::Error(x) => return MalType::Error(x),
                             MalType::Nil | MalType::Bool(false) => {
                                 if uneval_list.len() > 3 {
-                                    return eval(&uneval_list[3], env)
+                                    return eval(&uneval_list[3], &mut eval_env)
                                 } else {
                                     return MalType::Nil
                                 }
                             }
                             _ => {
                                 if uneval_list.len() > 2 {
-                                    return eval(&uneval_list[2], env)
+                                    return eval(&uneval_list[2], &mut eval_env)
                                 } else {
                                     return MalType::Nil
                                 }
@@ -223,7 +231,7 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                                 let function_body = uneval_list[2].clone();
 
                                 //create new clone environment, to cut ties to passed in env
-                                let new_env = env.clone();
+                                let new_env = eval_env.clone();
 
                                 //println!("{:?}", function_body);
                                 let new_func = move |args: BuiltinFuncArgs| {
@@ -247,14 +255,14 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
 
                     //do_fn_special_atom(uneval_list, env)
                     } else {
-                        return eval_list(t, env)
+                        return eval_list(t, &mut eval_env)
                     }
                 } else {
-                    return eval_list(t, env)
+                    return eval_list(t, &mut eval_env)
                     //MalType::Error(format!("{} not found.", pr_str(first)))
                 }
             }
-            _ => return eval_ast(t, env),
+            _ => return eval_ast(t, &mut eval_env),
         }
     }
 }
@@ -358,6 +366,12 @@ mod tests {
 
         env.set("newSymbol".to_string(), MalType::Int(456));
         assert_eq!(inner2.get("newSymbol".to_string()), MalType::Int(456));
+
+        let new_env = env.clone();
+        assert_eq!(new_env.get("newSymbol".to_string()), MalType::Int(456));
+
+        new_env.set("newSymbol2".to_string(), MalType::Int(9876));
+        assert_eq!(inner2.get("newSymbol2".to_string()), MalType::Int(9876));
     }
 
     #[test]
