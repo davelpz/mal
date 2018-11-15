@@ -35,9 +35,9 @@ pub struct Environment {
 
 impl Clone for Environment {
     fn clone(&self) -> Environment {
-         Environment {
-             env: self.env.clone()
-         }
+        Environment {
+            env: self.env.clone(),
+        }
     }
 }
 
@@ -171,7 +171,7 @@ fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
 }
 
 pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
-    let mut eval_env : Environment = env.clone();
+    let mut eval_env: Environment = env.clone();
 
     loop {
         match t {
@@ -181,7 +181,7 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                 let first = &uneval_list[0];
                 if let MalType::Error(_) = first {
                     //don't think this is needed
-                    return MalType::Error(pr_str(first, true).to_string())
+                    return MalType::Error(pr_str(first, true).to_string());
                 } else if let MalType::Symbol(s) = first {
                     if s == "def!" {
                         let second = &uneval_list[1];
@@ -193,33 +193,33 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                     } else if s == "let*" {
                         eval_env = new_let_env(&uneval_list[1], &mut eval_env).unwrap();
                         t = &uneval_list[2];
-                        //return eval(&uneval_list[2], &mut new_let_env(&uneval_list[1], &mut eval_env).unwrap())
                     } else if s == "do" {
-                        if let MalType::List(_) =
-                            eval_ast(&MalType::List(uneval_list[1..uneval_list.len()-1].to_vec()), &mut eval_env)
-                        {
-                            t = &uneval_list[uneval_list.len()-1];
+                        if let MalType::List(_) = eval_ast(
+                            &MalType::List(uneval_list[1..uneval_list.len() - 1].to_vec()),
+                            &mut eval_env,
+                        ) {
+                            t = &uneval_list[uneval_list.len() - 1];
                         } else {
                             return MalType::Error(
                                 "Internal Error: eval_ast of list did not return a list"
                                     .to_string(),
-                            )
+                            );
                         }
                     } else if s == "if" {
                         match eval(&uneval_list[1], &mut eval_env) {
                             MalType::Error(x) => return MalType::Error(x),
                             MalType::Nil | MalType::Bool(false) => {
                                 if uneval_list.len() > 3 {
-                                    return eval(&uneval_list[3], &mut eval_env)
+                                    t = &uneval_list[3];
                                 } else {
-                                    return MalType::Nil
+                                    return MalType::Nil;
                                 }
                             }
                             _ => {
                                 if uneval_list.len() > 2 {
-                                    return eval(&uneval_list[2], &mut eval_env)
+                                    t = &uneval_list[2];
                                 } else {
-                                    return MalType::Nil
+                                    return MalType::Nil;
                                 }
                             }
                         }
@@ -245,20 +245,22 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                                     //finally call the function
                                     eval(&function_body, &mut new_func_env)
                                 };
-                                return MalType::Func(Rc::new(Box::new(new_func)))
+                                return MalType::Func(Rc::new(Box::new(new_func)));
                             }
-                            _ => return MalType::Error(format!(
-                                "bind list is not a list: {} ",
-                                pr_str(&uneval_list[1], true)
-                            )),
+                            _ => {
+                                return MalType::Error(format!(
+                                    "bind list is not a list: {} ",
+                                    pr_str(&uneval_list[1], true)
+                                ))
+                            }
                         }
 
                     //do_fn_special_atom(uneval_list, env)
                     } else {
-                        return eval_list(t, &mut eval_env)
+                        return eval_list(t, &mut eval_env);
                     }
                 } else {
-                    return eval_list(t, &mut eval_env)
+                    return eval_list(t, &mut eval_env);
                     //MalType::Error(format!("{} not found.", pr_str(first)))
                 }
             }
