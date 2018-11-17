@@ -27,7 +27,11 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
         MalType::Int(x) => x.to_string(),
         MalType::Float(f) => f.to_string(),
         MalType::Bool(b) => b.to_string(),
-        MalType::Str(s) => if print_readably { escape(s) } else { s.to_string() },
+        MalType::Str(s) => if print_readably {
+            escape(s)
+        } else {
+            s.to_string()
+        },
         MalType::Symbol(s) => s.to_string(),
         MalType::KeyWord(s) => s.to_string(),
         MalType::List(l) => {
@@ -74,5 +78,6 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
         }
         MalType::Error(s) => s.to_string(),
         MalType::Func(_) => "#<function>".to_string(),
+        MalType::TCOFunc(_, _, _, _) => "#<functionTCO>".to_string(),
     }
 }

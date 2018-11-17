@@ -134,6 +134,14 @@ fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
             MalType::Func(bv) if av == bv => true,
             _ => false,
         },
+        MalType::TCOFunc(av1, av2, av3, av4) => match b {
+            MalType::TCOFunc(bv1, bv2, bv3, bv4)
+                if av1 == bv1 && av2 == bv2 && av3 == bv3 && av4 == bv4 =>
+            {
+                true
+            }
+            _ => false,
+        },
         MalType::Int(av) => match b {
             MalType::Int(bv) if av == bv => true,
             _ => false,

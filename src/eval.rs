@@ -41,6 +41,12 @@ impl Clone for Environment {
     }
 }
 
+impl PartialEq for Environment {
+    fn eq(&self, _other: &Environment) -> bool {
+        false
+    }
+}
+
 impl Environment {
     pub fn new() -> Environment {
         Environment {
@@ -154,30 +160,15 @@ fn new_let_env(bind_list: &MalType, env: &mut Environment) -> Option<Environment
     Some(new_env)
 }
 
-fn eval_list(t: &MalType, env: &mut Environment) -> MalType {
-    let mut eval_list_ast = eval_ast(t, env);
-    if let MalType::List(ref mut eval_list) = eval_list_ast {
-        let mut first = &eval_list[0];
-        if let MalType::Error(_) = first {
-            first.clone()
-        } else if let MalType::Func(f) = first {
-            f(eval_list[1..].to_vec())
-        } else {
-            MalType::Error(format!("{} not found.", pr_str(first, true)))
-        }
-    } else {
-        MalType::Error("internal error: eval_ast of List did not return a List".to_string())
-    }
-}
-
-pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
+pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
+    let mut ast = t1.clone();
     let mut eval_env: Environment = env.clone();
 
     loop {
-        match t {
-            MalType::Error(_) => return t.clone(),
-            MalType::List(list) if list.is_empty() => return t.clone(),
-            MalType::List(uneval_list) if !uneval_list.is_empty() => {
+        match ast.clone() {
+            MalType::Error(_) => return ast.clone(),
+            MalType::List(ref list) if list.is_empty() => return ast.clone(),
+            MalType::List(ref uneval_list) if !uneval_list.is_empty() => {
                 let first = &uneval_list[0];
                 if let MalType::Error(_) = first {
                     //don't think this is needed
@@ -192,13 +183,13 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                         }
                     } else if s == "let*" {
                         eval_env = new_let_env(&uneval_list[1], &mut eval_env).unwrap();
-                        t = &uneval_list[2];
+                        ast = uneval_list[2].clone();
                     } else if s == "do" {
                         if let MalType::List(_) = eval_ast(
                             &MalType::List(uneval_list[1..uneval_list.len() - 1].to_vec()),
                             &mut eval_env,
                         ) {
-                            t = &uneval_list[uneval_list.len() - 1];
+                            ast = uneval_list[uneval_list.len() - 1].clone();
                         } else {
                             return MalType::Error(
                                 "Internal Error: eval_ast of list did not return a list"
@@ -210,14 +201,14 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                             MalType::Error(x) => return MalType::Error(x),
                             MalType::Nil | MalType::Bool(false) => {
                                 if uneval_list.len() > 3 {
-                                    t = &uneval_list[3];
+                                    ast = uneval_list[3].clone();
                                 } else {
                                     return MalType::Nil;
                                 }
                             }
                             _ => {
                                 if uneval_list.len() > 2 {
-                                    t = &uneval_list[2];
+                                    ast = uneval_list[2].clone();
                                 } else {
                                     return MalType::Nil;
                                 }
@@ -245,7 +236,13 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                                     //finally call the function
                                     eval(&function_body, &mut new_func_env)
                                 };
-                                return MalType::Func(Rc::new(Box::new(new_func)));
+                                return MalType::TCOFunc(
+                                    binds.clone(),
+                                    Box::new(uneval_list[2].clone()),
+                                    eval_env.clone(),
+                                    Rc::new(Box::new(new_func)),
+                                );
+                                //return MalType::Func(Rc::new(Box::new(new_func)));
                             }
                             _ => {
                                 return MalType::Error(format!(
@@ -254,17 +251,65 @@ pub fn eval(mut t: &MalType, env: &mut Environment) -> MalType {
                                 ))
                             }
                         }
-
-                    //do_fn_special_atom(uneval_list, env)
                     } else {
-                        return eval_list(t, &mut eval_env);
+                        //fist element in list is a symbol but not a special form
+                        //return eval_list(&ast, &mut eval_env);
+                        let eval_list_ast = eval_ast(&ast, &mut eval_env);
+                        if let MalType::List(mut eval_list) = eval_list_ast {
+                            let mut first = &eval_list[0];
+                            if let MalType::Error(_) = first {
+                                return first.clone();
+                            } else if let MalType::Func(f) = first {
+                                return f(eval_list[1..].to_vec());
+                            } else if let MalType::TCOFunc(args, body, env, _func) = first {
+                                ast = *body.clone();
+                                let mut new_func_env = env.get_inner();
+
+                                //bind function arguments
+                                new_func_env.bind_exprs(&args, &eval_list[1..]);
+
+                                eval_env = new_func_env;
+                            } else {
+                                return MalType::Error(format!(
+                                    "{} not found.",
+                                    pr_str(first, true)
+                                ));
+                            }
+                        } else {
+                            return MalType::Error(
+                                "internal error: eval_ast of List did not return a List"
+                                    .to_string(),
+                            );
+                        }
                     }
                 } else {
-                    return eval_list(t, &mut eval_env);
-                    //MalType::Error(format!("{} not found.", pr_str(first)))
+                    //first element is not a symbol, must be a Func or a TCOFunc
+                    let eval_list_ast = eval_ast(&ast, &mut eval_env);
+                    if let MalType::List(mut eval_list) = eval_list_ast {
+                        let mut first = &eval_list[0];
+                        if let MalType::Error(_) = first {
+                            return first.clone();
+                        } else if let MalType::Func(f) = first {
+                            return f(eval_list[1..].to_vec());
+                        } else if let MalType::TCOFunc(args, body, env, _func) = first {
+                            ast = *body.clone();
+                            let mut new_func_env = env.get_inner();
+
+                            //bind function arguments
+                            new_func_env.bind_exprs(&args, &eval_list[1..]);
+
+                            eval_env = new_func_env;
+                        } else {
+                            return MalType::Error(format!("{} not found.", pr_str(first, true)));
+                        }
+                    } else {
+                        return MalType::Error(
+                            "internal error: eval_ast of List did not return a List".to_string(),
+                        );
+                    }
                 }
             }
-            _ => return eval_ast(t, &mut eval_env),
+            _ => return eval_ast(&ast, &mut eval_env),
         }
     }
 }
