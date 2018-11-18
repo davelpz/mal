@@ -18,4 +18,4 @@ There are 9 steps in the process
 - Step 9: Try
 - Step A: Metadata, Self-hosting and Interop
 
-I'm currently at Step 5
+I'm currently at Step 6

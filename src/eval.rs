@@ -825,4 +825,27 @@ mod tests {
             assert_eq!(eval(&ast, &mut env), tup.1);
         }
     }
+
+    #[test]
+    fn eval_test_step5() {
+        let mut env = Environment::new();
+        init_environment(&mut env);
+
+        let mut tests: Vec<(&str, MalType)> = Vec::new();
+
+        eval(&read_str("(def! sum2 (fn* (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))"), &mut env);
+        eval(&read_str("(def! foo (fn* (n) (if (= n 0) 0 (bar (- n 1)))))"), &mut env);
+        eval(&read_str("(def! bar (fn* (n) (if (= n 0) 0 (foo (- n 1)))))"), &mut env);
+
+        tests.push(("(def! res2 nil)", MalType::Nil));
+        tests.push(("(def! res2 (sum2 10000 0))", MalType::Int(50005000)));
+
+        tests.push(("(foo 10000)", MalType::Int(0)));
+
+        for tup in tests {
+            //println!("{:?}",tup.0);
+            let ast = read_str(tup.0);
+            assert_eq!(eval(&ast, &mut env), tup.1);
+        }
+    }
 }
