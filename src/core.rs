@@ -1,5 +1,6 @@
 use eval::Environment;
 use printer;
+use reader::read_str;
 use rep;
 use std::rc::Rc;
 use types::BuiltinFunc;
@@ -26,6 +27,8 @@ pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
     ns.push(("<=", Rc::new(Box::new(le_builtin))));
     ns.push((">", Rc::new(Box::new(gt_builtin))));
     ns.push((">=", Rc::new(Box::new(ge_builtin))));
+    ns.push(("read-string", Rc::new(Box::new(read_string_builtin))));
+    ns.push(("slurp", Rc::new(Box::new(slurp_builtin))));
 
     ns
 }
@@ -36,6 +39,7 @@ pub fn init_environment(env: &mut Environment) {
     }
 
     rep("(def! not (fn* (a) (if a false true)))", env);
+    rep("(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))", env);
 }
 
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {
@@ -388,4 +392,34 @@ fn division_builtin(args: BuiltinFuncArgs) -> MalType {
         }
         MalType::Float(result)
     }
+}
+
+fn read_string_builtin(args: BuiltinFuncArgs) -> MalType {
+    let mut result: MalType = MalType::Nil;
+    for arg in args {
+        if let MalType::Str(s) = arg {
+            result = read_str(&s);
+        }
+    }
+    result
+}
+
+fn slurp_builtin(args: BuiltinFuncArgs) -> MalType {
+    use std::fs::File;
+    use std::io::Read;
+
+    for arg in args {
+        if let MalType::Str(s) = arg {
+            let mut file_res = File::open(s);
+            if let Ok(mut file) = file_res {
+                let mut contents = String::new();
+                file.read_to_string(&mut contents)
+                    .expect("Unable to read the file");
+
+                return MalType::Str(contents);
+            }
+        }
+    }
+
+    MalType::Str("".to_string())
 }

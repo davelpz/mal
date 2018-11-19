@@ -164,6 +164,8 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
     let mut ast = t1.clone();
     let mut eval_env: Environment = env.clone();
 
+    //println!("eval {:?}", ast);
+
     loop {
         match ast.clone() {
             MalType::Error(_) => return ast.clone(),
@@ -174,7 +176,13 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     //don't think this is needed
                     return MalType::Error(pr_str(first, true).to_string());
                 } else if let MalType::Symbol(s) = first {
-                    if s == "def!" {
+                    if s == "eval" {
+                        let second = eval(&uneval_list[1], &mut eval_env);
+                        //println!("in eval after eval_ast: {:?}", second);
+                        let eval_result = eval(&second, &mut eval_env);
+                        //println!("in eval after eval: {:?}", eval_result);
+                        return eval_result;
+                    } else if s == "def!" {
                         let second = &uneval_list[1];
                         let third = eval(&uneval_list[2], &mut eval_env);
                         match third {
@@ -260,6 +268,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                             if let MalType::Error(_) = first {
                                 return first.clone();
                             } else if let MalType::Func(f) = first {
+                                //println!("#1 in MalType::Func(f) = first: {:?}", f);
                                 return f(eval_list[1..].to_vec());
                             } else if let MalType::TCOFunc(args, body, env, _func) = first {
                                 ast = *body.clone();
@@ -290,6 +299,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                         if let MalType::Error(_) = first {
                             return first.clone();
                         } else if let MalType::Func(f) = first {
+                            //println!("#2 in MalType::Func(f) = first: {:?}", f);
                             return f(eval_list[1..].to_vec());
                         } else if let MalType::TCOFunc(args, body, env, _func) = first {
                             ast = *body.clone();
@@ -315,6 +325,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
 }
 
 pub fn eval_ast(t: &MalType, env: &mut Environment) -> MalType {
+    //println!("eval_ast: {:?}", t);
     match t {
         MalType::Symbol(s) => {
             let lookup = env.get(s.to_string());
@@ -325,6 +336,12 @@ pub fn eval_ast(t: &MalType, env: &mut Environment) -> MalType {
             }
         }
         MalType::List(l) => {
+            /*
+            if let MalType::Symbol(ref s) = l[0] {
+                if s == "eval" {
+                    return eval(t, env);
+                }
+            }*/
             let new_l: Vec<MalType> = l.iter().map(|item| eval(item, env)).collect();
             MalType::List(new_l)
         }
@@ -833,9 +850,18 @@ mod tests {
 
         let mut tests: Vec<(&str, MalType)> = Vec::new();
 
-        eval(&read_str("(def! sum2 (fn* (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))"), &mut env);
-        eval(&read_str("(def! foo (fn* (n) (if (= n 0) 0 (bar (- n 1)))))"), &mut env);
-        eval(&read_str("(def! bar (fn* (n) (if (= n 0) 0 (foo (- n 1)))))"), &mut env);
+        eval(
+            &read_str("(def! sum2 (fn* (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))"),
+            &mut env,
+        );
+        eval(
+            &read_str("(def! foo (fn* (n) (if (= n 0) 0 (bar (- n 1)))))"),
+            &mut env,
+        );
+        eval(
+            &read_str("(def! bar (fn* (n) (if (= n 0) 0 (foo (- n 1)))))"),
+            &mut env,
+        );
 
         tests.push(("(def! res2 nil)", MalType::Nil));
         tests.push(("(def! res2 (sum2 10000 0))", MalType::Int(50005000)));
