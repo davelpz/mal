@@ -10,13 +10,13 @@ pub type EnvScope = HashMap<String, MalType>;
 //Defining Environment type for mal
 #[derive(Debug, Clone)]
 pub struct EnvironmentContents {
-    pub map: EnvScope,
+    pub map: Rc<RefCell<EnvScope>>,
     pub outer: Option<Rc<RefCell<EnvironmentContents>>>,
 }
 
 impl EnvironmentContents {
     pub fn find(&self, key: String) -> Option<MalType> {
-        if let Some(x) = self.map.get(&key) {
+        if let Some(x) = self.map.borrow().get(&key) {
             Some(x.clone())
         } else {
             if let Some(out) = self.outer.clone() {
@@ -24,6 +24,14 @@ impl EnvironmentContents {
             } else {
                 None
             }
+        }
+    }
+    pub fn get_root(&self) -> Environment {
+        match self.outer {
+            None => Environment {
+                env: Rc::new(RefCell::new(self.clone())),
+            },
+            Some(ref e) => e.borrow().get_root()
         }
     }
 }
@@ -51,7 +59,7 @@ impl Environment {
     pub fn new() -> Environment {
         Environment {
             env: Rc::new(RefCell::new(EnvironmentContents {
-                map: HashMap::new(),
+                map: Rc::new(RefCell::new(HashMap::new())),
                 outer: None,
             })),
         }
@@ -59,7 +67,8 @@ impl Environment {
 
     pub fn set(&self, key: String, value: MalType) -> MalType {
         let c = value.clone();
-        self.env.borrow_mut().map.insert(key, value);
+        let tenv = self.env.borrow_mut();
+        tenv.map.borrow_mut().insert(key, value);
         c
     }
 
@@ -77,11 +86,20 @@ impl Environment {
 
     pub fn get_inner(&self) -> Environment {
         let new_env_cont = EnvironmentContents {
-            map: HashMap::new(),
+            map: Rc::new(RefCell::new(HashMap::new())),
             outer: Some(self.env.clone()),
         };
         Environment {
             env: Rc::new(RefCell::new(new_env_cont)),
+        }
+    }
+
+    pub fn get_root(&self) -> Environment {
+        let env = self.env.borrow();
+
+        match env.outer {
+            None => self.clone(),
+            Some(ref e) => e.borrow().get_root()
         }
     }
 
@@ -178,8 +196,10 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                 } else if let MalType::Symbol(s) = first {
                     if s == "eval" {
                         let second = eval(&uneval_list[1], &mut eval_env);
+                        let mut root_env = eval_env.get_root();
+
                         //println!("in eval after eval_ast: {:?}", second);
-                        let eval_result = eval(&second, &mut eval_env);
+                        let eval_result = eval(&second, &mut root_env);
                         //println!("in eval after eval: {:?}", eval_result);
                         return eval_result;
                     } else if s == "def!" {
