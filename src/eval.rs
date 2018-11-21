@@ -8,45 +8,11 @@ use types::MalType;
 pub type EnvScope = HashMap<String, MalType>;
 
 //Defining Environment type for mal
+
 #[derive(Debug, Clone)]
-pub struct EnvironmentContents {
-    pub map: Rc<RefCell<EnvScope>>,
-    pub outer: Option<Rc<RefCell<EnvironmentContents>>>,
-}
-
-impl EnvironmentContents {
-    pub fn find(&self, key: String) -> Option<MalType> {
-        if let Some(x) = self.map.borrow().get(&key) {
-            Some(x.clone())
-        } else {
-            if let Some(out) = self.outer.clone() {
-                out.borrow().find(key)
-            } else {
-                None
-            }
-        }
-    }
-    pub fn get_root(&self) -> Environment {
-        match self.outer {
-            None => Environment {
-                env: Rc::new(RefCell::new(self.clone())),
-            },
-            Some(ref e) => e.borrow().get_root()
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct Environment {
-    pub env: Rc<RefCell<EnvironmentContents>>,
-}
-
-impl Clone for Environment {
-    fn clone(&self) -> Environment {
-        Environment {
-            env: self.env.clone(),
-        }
-    }
+    pub map: Rc<RefCell<EnvScope>>,
+    pub outer: Option<Rc<RefCell<Environment>>>,
 }
 
 impl PartialEq for Environment {
@@ -58,23 +24,27 @@ impl PartialEq for Environment {
 impl Environment {
     pub fn new() -> Environment {
         Environment {
-            env: Rc::new(RefCell::new(EnvironmentContents {
-                map: Rc::new(RefCell::new(HashMap::new())),
-                outer: None,
-            })),
+            map: Rc::new(RefCell::new(HashMap::new())),
+            outer: None,
         }
     }
 
     pub fn set(&self, key: String, value: MalType) -> MalType {
         let c = value.clone();
-        let tenv = self.env.borrow_mut();
-        tenv.map.borrow_mut().insert(key, value);
+        self.map.borrow_mut().insert(key, value);
         c
     }
 
     pub fn find(&self, key: String) -> Option<MalType> {
-        let env = self.env.borrow();
-        env.find(key)
+        if let Some(x) = self.map.borrow().get(&key) {
+            Some(x.clone())
+        } else {
+            if let Some(out) = self.outer.clone() {
+                out.borrow().find(key)
+            } else {
+                None
+            }
+        }
     }
 
     pub fn get(&self, key: String) -> MalType {
@@ -85,34 +55,20 @@ impl Environment {
     }
 
     pub fn get_inner(&self) -> Environment {
-        let new_env_cont = EnvironmentContents {
-            map: Rc::new(RefCell::new(HashMap::new())),
-            outer: Some(self.env.clone()),
-        };
         Environment {
-            env: Rc::new(RefCell::new(new_env_cont)),
+            map: Rc::new(RefCell::new(HashMap::new())),
+            outer: Some(Rc::new(RefCell::new(self.clone()))),
         }
     }
 
     pub fn get_root(&self) -> Environment {
-        let env = self.env.borrow();
-
-        match env.outer {
+        match self.outer {
             None => self.clone(),
             Some(ref e) => e.borrow().get_root()
         }
     }
 
     pub fn bind_exprs(&mut self, binds: &[MalType], exprs: &[MalType]) -> MalType {
-        /*
-        if binds.len() != exprs.len() {
-            println!("binds.len() != exprs.len()");
-            return MalType::Error(
-                "Number of passed parameters doesn't match number of expected arguments."
-                    .to_string(),
-            );
-        }
-        */
         for (i, bind) in binds.iter().enumerate() {
             if let MalType::Symbol(b) = bind {
                 //println!("bind_exprs: {:?}", b);
@@ -356,12 +312,6 @@ pub fn eval_ast(t: &MalType, env: &mut Environment) -> MalType {
             }
         }
         MalType::List(l) => {
-            /*
-            if let MalType::Symbol(ref s) = l[0] {
-                if s == "eval" {
-                    return eval(t, env);
-                }
-            }*/
             let new_l: Vec<MalType> = l.iter().map(|item| eval(item, env)).collect();
             MalType::List(new_l)
         }
