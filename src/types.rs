@@ -1,6 +1,7 @@
 
 use std::fmt;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use eval::Environment;
 
@@ -13,6 +14,7 @@ pub enum MalType {
     Str(String),
     Symbol(String),
     KeyWord(String),
+    Atom(Rc<RefCell<MalType>>),
     List(Vec<MalType>),
     Vector(Vec<MalType>),
     Map(Vec<MalType>),
@@ -68,6 +70,7 @@ impl Clone for MalType {
             MalType::Str(s) => MalType::Str(s.clone()),
             MalType::Symbol(s) => MalType::Symbol(s.clone()),
             MalType::KeyWord(s) => MalType::KeyWord(s.clone()),
+            MalType::Atom(s) => MalType::Atom(s.clone()),
             MalType::List(l) => MalType::List(l.clone()),
             MalType::Vector(l) => MalType::Vector(l.clone()),
             MalType::Map(l) => MalType::Map(l.clone()),

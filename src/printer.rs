@@ -34,6 +34,14 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
         },
         MalType::Symbol(s) => s.to_string(),
         MalType::KeyWord(s) => s.to_string(),
+        MalType::Atom(s) => {
+            let mut result = String::new();
+            result.push_str("(atom ");
+
+            result.push_str(&pr_str(&s.borrow(), print_readably));
+            result.push_str(")");
+            result
+        },
         MalType::List(l) => {
             let mut result = String::new();
             result.push_str("(");

@@ -3,6 +3,7 @@ use printer;
 use reader::read_str;
 use rep;
 use std::rc::Rc;
+use std::cell::RefCell;
 use types::BuiltinFunc;
 use types::BuiltinFuncArgs;
 use types::MalType;
@@ -29,6 +30,10 @@ pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
     ns.push((">=", Rc::new(Box::new(ge_builtin))));
     ns.push(("read-string", Rc::new(Box::new(read_string_builtin))));
     ns.push(("slurp", Rc::new(Box::new(slurp_builtin))));
+    ns.push(("atom", Rc::new(Box::new(atom_builtin))));
+    ns.push(("atom?", Rc::new(Box::new(atom_test_builtin))));
+    ns.push(("deref", Rc::new(Box::new(deref_builtin))));
+    ns.push(("reset!", Rc::new(Box::new(reset_builtin))));
 
     ns
 }
@@ -39,7 +44,10 @@ pub fn init_environment(env: &mut Environment) {
     }
 
     rep("(def! not (fn* (a) (if a false true)))", env);
-    rep("(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))", env);
+    rep(
+        "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))",
+        env,
+    );
 }
 
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {
@@ -164,6 +172,10 @@ fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
         },
         MalType::Symbol(av) => match b {
             MalType::Symbol(bv) if av == bv => true,
+            _ => false,
+        },
+        MalType::Atom(av) => match b {
+            MalType::Atom(bv) => equals_builtin_helper(&av.borrow(), &bv.borrow()),
             _ => false,
         },
         MalType::List(av) => match b {
@@ -422,4 +434,55 @@ fn slurp_builtin(args: BuiltinFuncArgs) -> MalType {
     }
 
     MalType::Str("".to_string())
+}
+
+fn atom_builtin(args: BuiltinFuncArgs) -> MalType {
+
+    for arg in args {
+        return MalType::Atom(Rc::new(RefCell::new(arg)));
+    }
+
+    MalType::Atom(Rc::new(RefCell::new(MalType::Error("atom takes exactly 1 argument".to_string()))))
+}
+
+fn atom_test_builtin(args: BuiltinFuncArgs) -> MalType {
+
+    for arg in args {
+        return match arg {
+            MalType::Atom(_) => MalType::Bool(true),
+            _ => MalType::Bool(false)
+        }
+    }
+
+    MalType::Error("atom? takes exactly 1 argument".to_string())
+}
+
+fn deref_builtin(args: BuiltinFuncArgs) -> MalType {
+
+    for arg in args {
+        return match arg {
+            MalType::Atom(x) => x.borrow().clone(),
+            _ => MalType::Error("deref argument not an atom".to_string())
+        }
+    }
+
+    MalType::Error("deref takes exactly 1 argument".to_string())
+}
+
+fn reset_builtin(args: BuiltinFuncArgs) -> MalType {
+    if args.len() != 2 {
+        MalType::Error("reset! takes exactly 2 arguments".to_string())
+    } else {
+        let atom = &args[0];
+        let value = &args[1];
+
+        match atom {
+            MalType::Atom(x) => {
+                x.replace(value.clone());
+            },
+            _ => return MalType::Error("reset! 1st argument must be an atom".to_string())
+        }
+
+        value.clone()
+    }
 }
