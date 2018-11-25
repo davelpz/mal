@@ -2,8 +2,8 @@ use eval::Environment;
 use printer;
 use reader::read_str;
 use rep;
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 use types::BuiltinFunc;
 use types::BuiltinFuncArgs;
 use types::MalType;
@@ -34,6 +34,7 @@ pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
     ns.push(("atom?", Rc::new(Box::new(atom_test_builtin))));
     ns.push(("deref", Rc::new(Box::new(deref_builtin))));
     ns.push(("reset!", Rc::new(Box::new(reset_builtin))));
+    ns.push(("swap!", Rc::new(Box::new(swap_builtin))));
 
     ns
 }
@@ -437,33 +438,32 @@ fn slurp_builtin(args: BuiltinFuncArgs) -> MalType {
 }
 
 fn atom_builtin(args: BuiltinFuncArgs) -> MalType {
-
     for arg in args {
         return MalType::Atom(Rc::new(RefCell::new(arg)));
     }
 
-    MalType::Atom(Rc::new(RefCell::new(MalType::Error("atom takes exactly 1 argument".to_string()))))
+    MalType::Atom(Rc::new(RefCell::new(MalType::Error(
+        "atom takes exactly 1 argument".to_string(),
+    ))))
 }
 
 fn atom_test_builtin(args: BuiltinFuncArgs) -> MalType {
-
     for arg in args {
         return match arg {
             MalType::Atom(_) => MalType::Bool(true),
-            _ => MalType::Bool(false)
-        }
+            _ => MalType::Bool(false),
+        };
     }
 
     MalType::Error("atom? takes exactly 1 argument".to_string())
 }
 
 fn deref_builtin(args: BuiltinFuncArgs) -> MalType {
-
     for arg in args {
         return match arg {
             MalType::Atom(x) => x.borrow().clone(),
-            _ => MalType::Error("deref argument not an atom".to_string())
-        }
+            _ => MalType::Error("deref argument not an atom".to_string()),
+        };
     }
 
     MalType::Error("deref takes exactly 1 argument".to_string())
@@ -479,10 +479,51 @@ fn reset_builtin(args: BuiltinFuncArgs) -> MalType {
         match atom {
             MalType::Atom(x) => {
                 x.replace(value.clone());
-            },
-            _ => return MalType::Error("reset! 1st argument must be an atom".to_string())
+            }
+            _ => return MalType::Error("reset! 1st argument must be an atom".to_string()),
         }
 
         value.clone()
+    }
+}
+
+fn swap_builtin(args: BuiltinFuncArgs) -> MalType {
+    if args.len() < 2 {
+        MalType::Error("swap! takes at least 2 arguments".to_string())
+    } else {
+        let atom = &args[0];
+        let func = &args[1];
+        let mut func_args: Vec<MalType> = Vec::new();
+
+        match atom {
+            MalType::Atom(x) => {
+                func_args.push(x.borrow().clone());
+            }
+            _ => return MalType::Error("swap! 1st argument must be an atom".to_string()),
+        }
+
+        if args.len() > 2 {
+            for arg in &args[2..] {
+                func_args.push(arg.clone());
+            }
+        }
+
+        match func {
+            MalType::Func(f) => {
+                let result = f(func_args);
+                if let MalType::Atom(x) = atom {
+                    x.replace(result.clone());
+                }
+                return result;
+            }
+            MalType::TCOFunc(_args, _body, _env, func) => {
+                let result = func(func_args);
+                if let MalType::Atom(x) = atom {
+                    x.replace(result.clone());
+                }
+                return result;
+            }
+            _ => return MalType::Error("swap! 2nd argument must be a function".to_string()),
+        }
     }
 }
