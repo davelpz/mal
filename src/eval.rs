@@ -64,7 +64,7 @@ impl Environment {
     pub fn get_root(&self) -> Environment {
         match self.outer {
             None => self.clone(),
-            Some(ref e) => e.borrow().get_root()
+            Some(ref e) => e.borrow().get_root(),
         }
     }
 
@@ -840,6 +840,109 @@ mod tests {
 
         for tup in tests {
             //println!("{:?}",tup.0);
+            let ast = read_str(tup.0);
+            assert_eq!(eval(&ast, &mut env), tup.1);
+        }
+    }
+
+    #[test]
+    fn eval_test_step6() {
+        let mut env = Environment::new();
+        init_environment(&mut env);
+
+        let mut tests: Vec<(&str, MalType)> = Vec::new();
+
+        //;; Testing that (do (do)) not broken by TCO
+        tests.push(("(do (do 1 2))", MalType::Int(2)));
+
+        //;; Testing read-string, eval and slurp
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        let mut v2 = Vec::new();
+        v2.push(MalType::Int(3));
+        v2.push(MalType::Int(4));
+        v1.push(MalType::List(v2));
+        v1.push(MalType::Nil);
+        tests.push(("(read-string \"(1 2 (3 4) nil)\")", MalType::List(v1)));
+
+        let mut v1 = Vec::new();
+        v1.push(MalType::Symbol("+".to_string()));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("(read-string \"(+ 2 3)\")", MalType::List(v1)));
+        tests.push(("(read-string \"7 ;; comment\")", MalType::Int(7)));
+        tests.push(("(read-string \";; comment\")", MalType::Nil));
+        tests.push(("(eval (read-string \"(+ 2 3)\"))", MalType::Int(5)));
+        tests.push((
+            "(slurp \"mal_tests/test.txt\")",
+            MalType::Str("A line of text\n".to_string()),
+        ));
+
+        eval(&read_str("(load-file \"mal_tests/inc.mal\")"), &mut env);
+        tests.push(("(inc1 7)", MalType::Int(8)));
+        tests.push(("(inc2 7)", MalType::Int(9)));
+        tests.push(("(inc3 9)", MalType::Int(12)));
+
+        //;; Testing that *ARGV* exists and is an empty list
+        tests.push(("(list? *ARGV*)", MalType::Bool(true)));
+        tests.push(("*ARGV*", MalType::List(Vec::new())));
+
+        //;; Testing atoms
+        eval(&read_str("(def! inc3 (fn* (a) (+ 3 a)))"), &mut env);
+        tests.push((
+            "(def! a (atom 2))",
+            MalType::Atom(Rc::new(RefCell::new(MalType::Int(2)))),
+        ));
+        tests.push(("(atom? a)", MalType::Bool(true)));
+        tests.push(("(atom? 1)", MalType::Bool(false)));
+        tests.push(("(deref a)", MalType::Int(2)));
+        tests.push(("(reset! a 3)", MalType::Int(3)));
+        tests.push(("(deref a)", MalType::Int(3)));
+        tests.push(("(swap! a inc3)", MalType::Int(6)));
+        tests.push(("(deref a)", MalType::Int(6)));
+        tests.push(("(swap! a (fn* (a) a))", MalType::Int(6)));
+        tests.push(("(swap! a (fn* (a) (* 2 a)))", MalType::Int(12)));
+        tests.push(("(swap! a (fn* (a b) (* a b)) 10)", MalType::Int(120)));
+        tests.push(("(swap! a + 3)", MalType::Int(123)));
+
+        //;; Testing swap!/closure interaction
+        eval(&read_str("(def! inc-it (fn* (a) (+ 1 a)))"), &mut env);
+        eval(&read_str("(def! atm (atom 7))"), &mut env);
+        eval(&read_str("(def! f (fn* () (swap! atm inc-it)))"), &mut env);
+        tests.push(("(f)", MalType::Int(8)));
+        tests.push(("(f)", MalType::Int(9)));
+
+        //;; Testing comments in a file
+        tests.push((
+            "(load-file \"mal_tests/incB.mal\")",
+            MalType::Str("incB.mal return string".to_string()),
+        ));
+        tests.push(("(inc4 7)", MalType::Int(11)));
+        tests.push(("(inc5 7)", MalType::Int(12)));
+
+        //;; Testing map literal across multiple lines in a file
+        eval(&read_str("(load-file \"mal_tests/incC.mal\")"), &mut env);
+
+        let mut v1 = Vec::new();
+        v1.push(MalType::Str("a".to_string()));
+        v1.push(MalType::Int(1));
+
+        tests.push(("mymap", MalType::Map(v1)));
+
+        //;; Testing `@` reader macro (short for `deref`)
+        eval(&read_str("(def! atm2 (atom 9))"), &mut env);
+        tests.push(("@atm2", MalType::Int(9)));
+
+        //;; Testing that vector params not broken by TCO
+        eval(&read_str("(def! g2 (fn* [] 78))"), &mut env);
+        tests.push(("(g2)", MalType::Int(78)));
+        eval(&read_str("(def! g3 (fn* [a] (+ a 78)))"), &mut env);
+        tests.push(("(g3 3)", MalType::Int(81)));
+
+
+        for tup in tests {
+            println!("{:?}",tup.0);
             let ast = read_str(tup.0);
             assert_eq!(eval(&ast, &mut env), tup.1);
         }

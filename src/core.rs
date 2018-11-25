@@ -44,6 +44,8 @@ pub fn init_environment(env: &mut Environment) {
         env.set(tup.0.to_string(), MalType::Func(tup.1));
     }
 
+    env.set("*ARGV*".to_string(), MalType::List(Vec::new()));
+
     rep("(def! not (fn* (a) (if a false true)))", env);
     rep(
         "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))",

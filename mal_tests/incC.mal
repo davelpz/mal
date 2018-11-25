@@ -1,0 +1,7 @@
+(def! mymap {"a"
+             1})
+
+(prn "incC.mal finished")
+"incC.mal return string"
+
+
