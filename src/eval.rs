@@ -134,6 +134,68 @@ fn new_let_env(bind_list: &MalType, env: &mut Environment) -> Option<Environment
     Some(new_env)
 }
 
+pub fn is_pair(ast: &MalType) -> bool {
+    match ast {
+        MalType::List(l) => l.len() != 0,
+        _ => false,
+    }
+}
+
+pub fn quasiquote(ast: &MalType) -> MalType {
+    if is_pair(ast) {
+        if let MalType::List(l) = ast {
+            if l.len() == 0 {
+                return MalType::Nil;
+            }
+
+            if let MalType::Symbol(sym) = &l[0] {
+                if l.len() == 1 {
+                    return MalType::Nil;
+                }
+
+                if sym == "unquote" {
+                    return l[1].clone();
+                }
+            }
+
+            if is_pair(&l[0]) {
+                if let MalType::List(l2) = &l[0] {
+                    if l2.len() == 0 {
+                        return MalType::Nil;
+                    }
+
+                    if let MalType::Symbol(sym2) = &l2[0] {
+                        if l2.len() == 1 {
+                            return MalType::Nil;
+                        }
+
+                        if sym2 == "splice-unquote" {
+                            let mut list: Vec<MalType> = Vec::new();
+                            list.push(MalType::Symbol("concat".to_string()));
+                            list.push(l2[1].clone());
+                            list.push(quasiquote(&MalType::List(l[1..].to_vec())));
+                            return MalType::List(list);
+                        }
+                    }
+                }
+            }
+
+            let mut list: Vec<MalType> = Vec::new();
+            list.push(MalType::Symbol("cons".to_string()));
+            list.push(quasiquote(&l[0]));
+            list.push(quasiquote(&MalType::List(l[1..].to_vec())));
+            return MalType::List(list);
+        }
+    } else {
+        let mut list: Vec<MalType> = Vec::new();
+        list.push(MalType::Symbol("quote".to_string()));
+        list.push(ast.clone());
+        return MalType::List(list);
+    }
+
+    MalType::Nil
+}
+
 pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
     let mut ast = t1.clone();
     let mut eval_env: Environment = env.clone();
@@ -170,6 +232,8 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                         ast = uneval_list[2].clone();
                     } else if s == "quote" {
                         return uneval_list[1].clone();
+                    } else if s == "quasiquote" {
+                        ast = quasiquote(&uneval_list[1]);
                     } else if s == "do" {
                         if let MalType::List(_) = eval_ast(
                             &MalType::List(uneval_list[1..uneval_list.len() - 1].to_vec()),
@@ -1008,7 +1072,10 @@ mod tests {
         v1.push(MalType::Int(4));
         v1.push(MalType::Int(5));
         v1.push(MalType::Int(6));
-        tests.push(("(concat (list 1 2) (list 3 4) (list 5 6))", MalType::List(v1)));
+        tests.push((
+            "(concat (list 1 2) (list 3 4) (list 5 6))",
+            MalType::List(v1),
+        ));
         let v1 = Vec::new();
         tests.push(("(concat (concat))", MalType::List(v1)));
         let v1 = Vec::new();
