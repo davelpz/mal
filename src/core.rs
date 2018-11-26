@@ -35,6 +35,8 @@ pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
     ns.push(("deref", Rc::new(Box::new(deref_builtin))));
     ns.push(("reset!", Rc::new(Box::new(reset_builtin))));
     ns.push(("swap!", Rc::new(Box::new(swap_builtin))));
+    ns.push(("cons", Rc::new(Box::new(cons_builtin))));
+    ns.push(("concat", Rc::new(Box::new(concat_builtin))));
 
     ns
 }
@@ -528,4 +530,36 @@ fn swap_builtin(args: BuiltinFuncArgs) -> MalType {
             _ => return MalType::Error("swap! 2nd argument must be a function".to_string()),
         }
     }
+}
+
+fn cons_builtin(args: BuiltinFuncArgs) -> MalType {
+    if args.len() < 2 {
+        MalType::Error("cons takes at 2 arguments".to_string())
+    } else {
+        match &args[1] {
+            MalType::List(l) => {
+                let mut result_list: Vec<MalType> = Vec::new();
+                let mut clone_list = l.clone();
+                result_list.push(args[0].clone());
+                result_list.append(&mut clone_list);
+                MalType::List(result_list)
+            }
+            _ => MalType::Error("cons 2nd argument must be a list".to_string()),
+        }
+    }
+}
+
+fn concat_builtin(args: BuiltinFuncArgs) -> MalType {
+    let mut result: Vec<MalType> = Vec::new();
+
+    for arg in &args {
+        match arg {
+            MalType::List(l) => {
+                result.append(&mut l.clone());
+            },
+            _ => return MalType::Error("concat arguments must be a list".to_string())
+        }
+    }
+
+    MalType::List(result)
 }

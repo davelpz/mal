@@ -168,6 +168,8 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     } else if s == "let*" {
                         eval_env = new_let_env(&uneval_list[1], &mut eval_env).unwrap();
                         ast = uneval_list[2].clone();
+                    } else if s == "quote" {
+                        return uneval_list[1].clone();
                     } else if s == "do" {
                         if let MalType::List(_) = eval_ast(
                             &MalType::List(uneval_list[1..uneval_list.len() - 1].to_vec()),
@@ -940,9 +942,115 @@ mod tests {
         eval(&read_str("(def! g3 (fn* [a] (+ a 78)))"), &mut env);
         tests.push(("(g3 3)", MalType::Int(81)));
 
+        for tup in tests {
+            println!("{:?}", tup.0);
+            let ast = read_str(tup.0);
+            assert_eq!(eval(&ast, &mut env), tup.1);
+        }
+    }
+
+    #[test]
+    fn eval_test_step7() {
+        let mut env = Environment::new();
+        init_environment(&mut env);
+
+        let mut tests: Vec<(&str, MalType)> = Vec::new();
+
+        //;; Testing cons function
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        tests.push(("(cons 1 (list))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        tests.push(("(cons 1 (list 2))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("(cons 1 (list 2 3))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        let mut v0 = Vec::new();
+        v0.push(MalType::Int(1));
+        v1.push(MalType::List(v0));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("(cons (list 1) (list 2 3))", MalType::List(v1)));
+
+        eval(&read_str("(def! a (list 2 3))"), &mut env);
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("(cons 1 a)", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("a", MalType::List(v1)));
+
+        //;; Testing concat function
+        let v1 = Vec::new();
+        tests.push(("(concat)", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        tests.push(("(concat (list 1 2))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        v1.push(MalType::Int(4));
+        tests.push(("(concat (list 1 2) (list 3 4))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        v1.push(MalType::Int(4));
+        v1.push(MalType::Int(5));
+        v1.push(MalType::Int(6));
+        tests.push(("(concat (list 1 2) (list 3 4) (list 5 6))", MalType::List(v1)));
+        let v1 = Vec::new();
+        tests.push(("(concat (concat))", MalType::List(v1)));
+        let v1 = Vec::new();
+        tests.push(("(concat (list) (list))", MalType::List(v1)));
+
+        eval(&read_str("(def! a1 (list 1 2))"), &mut env);
+        eval(&read_str("(def! b1 (list 3 4))"), &mut env);
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        v1.push(MalType::Int(4));
+        v1.push(MalType::Int(5));
+        v1.push(MalType::Int(6));
+        tests.push(("(concat a1 b1 (list 5 6))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        tests.push(("a1", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(3));
+        v1.push(MalType::Int(4));
+        tests.push(("b1", MalType::List(v1)));
+
+        //;; Testing regular quote
+        tests.push(("(quote 7)", MalType::Int(7)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("(quote (1 2 3))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        let mut v0 = Vec::new();
+        v0.push(MalType::Int(3));
+        v0.push(MalType::Int(4));
+        v1.push(MalType::List(v0));
+        tests.push(("(quote (1 2 (3 4)))", MalType::List(v1)));
 
         for tup in tests {
-            println!("{:?}",tup.0);
+            println!("{:?}", tup.0);
             let ast = read_str(tup.0);
             assert_eq!(eval(&ast, &mut env), tup.1);
         }
