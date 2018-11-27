@@ -537,7 +537,7 @@ fn cons_builtin(args: BuiltinFuncArgs) -> MalType {
         MalType::Error("cons takes at 2 arguments".to_string())
     } else {
         match &args[1] {
-            MalType::List(l) => {
+            MalType::List(l) | MalType::Vector(l) => {
                 let mut result_list: Vec<MalType> = Vec::new();
                 let mut clone_list = l.clone();
                 result_list.push(args[0].clone());
@@ -554,7 +554,7 @@ fn concat_builtin(args: BuiltinFuncArgs) -> MalType {
 
     for arg in &args {
         match arg {
-            MalType::List(l) => {
+            MalType::List(l) | MalType::Vector(l) => {
                 result.append(&mut l.clone());
             },
             _ => return MalType::Error("concat arguments must be a list".to_string())

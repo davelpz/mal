@@ -137,6 +137,7 @@ fn new_let_env(bind_list: &MalType, env: &mut Environment) -> Option<Environment
 pub fn is_pair(ast: &MalType) -> bool {
     match ast {
         MalType::List(l) => l.len() != 0,
+        MalType::Vector(l) => l.len() != 0,
         _ => false,
     }
 }
@@ -160,6 +161,84 @@ pub fn quasiquote(ast: &MalType) -> MalType {
 
             if is_pair(&l[0]) {
                 if let MalType::List(l2) = &l[0] {
+                    if l2.len() == 0 {
+                        return MalType::Nil;
+                    }
+
+                    if let MalType::Symbol(sym2) = &l2[0] {
+                        if l2.len() == 1 {
+                            return MalType::Nil;
+                        }
+
+                        if sym2 == "splice-unquote" {
+                            let mut list: Vec<MalType> = Vec::new();
+                            list.push(MalType::Symbol("concat".to_string()));
+                            list.push(l2[1].clone());
+                            list.push(quasiquote(&MalType::List(l[1..].to_vec())));
+                            return MalType::List(list);
+                        }
+                    }
+                } else if let MalType::Vector(l2) = &l[0] {
+                    if l2.len() == 0 {
+                        return MalType::Nil;
+                    }
+
+                    if let MalType::Symbol(sym2) = &l2[0] {
+                        if l2.len() == 1 {
+                            return MalType::Nil;
+                        }
+
+                        if sym2 == "splice-unquote" {
+                            let mut list: Vec<MalType> = Vec::new();
+                            list.push(MalType::Symbol("concat".to_string()));
+                            list.push(l2[1].clone());
+                            list.push(quasiquote(&MalType::List(l[1..].to_vec())));
+                            return MalType::List(list);
+                        }
+                    }
+                }
+            }
+
+            let mut list: Vec<MalType> = Vec::new();
+            list.push(MalType::Symbol("cons".to_string()));
+            list.push(quasiquote(&l[0]));
+            list.push(quasiquote(&MalType::List(l[1..].to_vec())));
+            return MalType::List(list);
+        } else if let MalType::Vector(l) = ast {
+            if l.len() == 0 {
+                return MalType::Nil;
+            }
+
+            if let MalType::Symbol(sym) = &l[0] {
+                if l.len() == 1 {
+                    return MalType::Nil;
+                }
+
+                if sym == "unquote" {
+                    return l[1].clone();
+                }
+            }
+
+            if is_pair(&l[0]) {
+                if let MalType::List(l2) = &l[0] {
+                    if l2.len() == 0 {
+                        return MalType::Nil;
+                    }
+
+                    if let MalType::Symbol(sym2) = &l2[0] {
+                        if l2.len() == 1 {
+                            return MalType::Nil;
+                        }
+
+                        if sym2 == "splice-unquote" {
+                            let mut list: Vec<MalType> = Vec::new();
+                            list.push(MalType::Symbol("concat".to_string()));
+                            list.push(l2[1].clone());
+                            list.push(quasiquote(&MalType::List(l[1..].to_vec())));
+                            return MalType::List(list);
+                        }
+                    }
+                } else if let MalType::Vector(l2) = &l[0] {
                     if l2.len() == 0 {
                         return MalType::Nil;
                     }
@@ -1115,6 +1194,218 @@ mod tests {
         v0.push(MalType::Int(4));
         v1.push(MalType::List(v0));
         tests.push(("(quote (1 2 (3 4)))", MalType::List(v1)));
+
+        //;; Testing simple quasiquote
+        tests.push(("(quasiquote 7)", MalType::Int(7)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("(quasiquote (1 2 3))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        let mut v0 = Vec::new();
+        v0.push(MalType::Int(3));
+        v0.push(MalType::Int(4));
+        v1.push(MalType::List(v0));
+        tests.push(("(quasiquote (1 2 (3 4)))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Nil);
+        tests.push(("(quasiquote (nil))", MalType::List(v1)));
+
+        //;; Testing unquote
+        tests.push(("(quasiquote (unquote 7))", MalType::Int(7)));
+        tests.push(("(def! a 8)", MalType::Int(8)));
+        tests.push(("(quasiquote a)", MalType::Symbol("a".to_string())));
+        tests.push(("(quasiquote (unquote a))", MalType::Int(8)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Symbol("a".to_string()));
+        v1.push(MalType::Int(3));
+        tests.push(("(quasiquote (1 a 3))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(8));
+        v1.push(MalType::Int(3));
+        tests.push(("(quasiquote (1 (unquote a) 3))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Str("b".to_string()));
+        v1.push(MalType::Str("d".to_string()));
+        tests.push(("(def! b (quote (1 \"b\" \"d\")))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Symbol("b".to_string()));
+        v1.push(MalType::Int(3));
+        tests.push(("(quasiquote (1 b 3))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        let mut v0 = Vec::new();
+        v0.push(MalType::Int(1));
+        v0.push(MalType::Str("b".to_string()));
+        v0.push(MalType::Str("d".to_string()));
+        v1.push(MalType::List(v0));
+        v1.push(MalType::Int(3));
+        tests.push(("(quasiquote (1 (unquote b) 3))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        tests.push(("(quasiquote ((unquote 1) (unquote 2)))", MalType::List(v1)));
+
+        //;; Testing splice-unquote
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Str("b".to_string()));
+        v1.push(MalType::Str("d".to_string()));
+        tests.push(("(def! c (quote (1 \"b\" \"d\")))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Symbol("c".to_string()));
+        v1.push(MalType::Int(3));
+        tests.push(("(quasiquote (1 c 3))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Str("b".to_string()));
+        v1.push(MalType::Str("d".to_string()));
+        v1.push(MalType::Int(3));
+        tests.push(("(quasiquote (1 (splice-unquote c) 3))", MalType::List(v1)));
+
+        //;; Testing symbol equality
+        tests.push(("(= (quote abc) (quote abc))", MalType::Bool(true)));
+        tests.push(("(= (quote abc) (quote abcd))", MalType::Bool(false)));
+        tests.push(("(= (quote abc) \"abc\")", MalType::Bool(false)));
+        tests.push(("(= \"abc\" (quote abc))", MalType::Bool(false)));
+        tests.push(("(= \"abc\" (str (quote abc)))", MalType::Bool(true)));
+        tests.push(("(= (quote abc) nil)", MalType::Bool(false)));
+        tests.push(("(= nil (quote abc))", MalType::Bool(false)));
+
+        //;; Testing ' (quote) reader macro
+        tests.push(("'7", MalType::Int(7)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("'(1 2 3)", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        let mut v0 = Vec::new();
+        v0.push(MalType::Int(3));
+        v0.push(MalType::Int(4));
+        v1.push(MalType::List(v0));
+        tests.push(("'(1 2 (3 4))", MalType::List(v1)));
+
+        //;; Testing ` (quasiquote) reader macro
+        tests.push(("`7", MalType::Int(7)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("`(1 2 3)", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        let mut v0 = Vec::new();
+        v0.push(MalType::Int(3));
+        v0.push(MalType::Int(4));
+        v1.push(MalType::List(v0));
+        tests.push(("`(1 2 (3 4))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Nil);
+        tests.push(("`(nil)", MalType::List(v1)));
+
+        //;; Testing ~ (unquote) reader macro
+        tests.push(("`~7", MalType::Int(7)));
+        tests.push(("(def! a 8)", MalType::Int(8)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(8));
+        v1.push(MalType::Int(3));
+        tests.push(("`(1 ~a 3)", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Str("b".to_string()));
+        v1.push(MalType::Str("d".to_string()));
+        tests.push(("(def! b '(1 \"b\" \"d\"))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Symbol("b".to_string()));
+        v1.push(MalType::Int(3));
+        tests.push(("`(1 b 3)", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        let mut v0 = Vec::new();
+        v0.push(MalType::Int(1));
+        v0.push(MalType::Str("b".to_string()));
+        v0.push(MalType::Str("d".to_string()));
+        v1.push(MalType::List(v0));
+        v1.push(MalType::Int(3));
+        tests.push(("`(1 ~b 3)", MalType::List(v1)));
+
+        //;; Testing ~@ (splice-unquote) reader macro
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Str("b".to_string()));
+        v1.push(MalType::Str("d".to_string()));
+        tests.push(("(def! c '(1 \"b\" \"d\"))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Symbol("c".to_string()));
+        v1.push(MalType::Int(3));
+        tests.push(("`(1 c 3)", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Str("b".to_string()));
+        v1.push(MalType::Str("d".to_string()));
+        v1.push(MalType::Int(3));
+        tests.push(("`(1 ~@c 3)", MalType::List(v1)));
+
+        //;; Testing cons, concat, first, rest with vectors
+        let mut v1 = Vec::new();
+        let mut v0 = Vec::new();
+        v0.push(MalType::Int(1));
+        v1.push(MalType::Vector(v0));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("(cons [1] [2 3])", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        tests.push(("(cons 1 [2 3])", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(2));
+        v1.push(MalType::Int(3));
+        v1.push(MalType::Int(4));
+        v1.push(MalType::Int(5));
+        v1.push(MalType::Int(6));
+        tests.push(("(concat [1 2] (list 3 4) [5 6])", MalType::List(v1)));
+
+        //;; Testing unquote with vectors
+        tests.push(("(def! a 8)", MalType::Int(8)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Symbol("a".to_string()));
+        v1.push(MalType::Int(3));
+        tests.push(("`[1 a 3]", MalType::List(v1)));
+
+        //;; Testing splice-unquote with vectors
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Str("b".to_string()));
+        v1.push(MalType::Str("d".to_string()));
+        tests.push(("(def! c '(1 \"b\" \"d\"))", MalType::List(v1)));
+        let mut v1 = Vec::new();
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Int(1));
+        v1.push(MalType::Str("b".to_string()));
+        v1.push(MalType::Str("d".to_string()));
+        v1.push(MalType::Int(3));
+        tests.push(("`[1 ~@c 3]", MalType::List(v1)));
 
         for tup in tests {
             println!("{:?}", tup.0);
