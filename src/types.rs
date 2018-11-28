@@ -1,7 +1,6 @@
-
+use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 use eval::Environment;
 
@@ -18,8 +17,14 @@ pub enum MalType {
     List(Vec<MalType>),
     Vector(Vec<MalType>),
     Map(Vec<MalType>),
-    Func(Rc<Box<BuiltinFunc>>),
-    TCOFunc(Vec<MalType>,Box<MalType>,Environment,Rc<Box<BuiltinFunc>>),
+    Func(Rc<Box<BuiltinFunc>>, bool),
+    TCOFunc(
+        Vec<MalType>,
+        Box<MalType>,
+        Environment,
+        Rc<Box<BuiltinFunc>>,
+        bool,
+    ),
     Error(String),
 }
 
@@ -74,9 +79,15 @@ impl Clone for MalType {
             MalType::List(l) => MalType::List(l.clone()),
             MalType::Vector(l) => MalType::Vector(l.clone()),
             MalType::Map(l) => MalType::Map(l.clone()),
-            MalType::Func(f) => MalType::Func(f.clone()),
+            MalType::Func(f, is_macro) => MalType::Func(f.clone(), *is_macro),
             MalType::Error(s) => MalType::Error(s.clone()),
-            MalType::TCOFunc(args,body,env,func) => MalType::TCOFunc(args.clone(),body.clone(),env.clone(),func.clone()),
+            MalType::TCOFunc(args, body, env, func, is_macro) => MalType::TCOFunc(
+                args.clone(),
+                body.clone(),
+                env.clone(),
+                func.clone(),
+                *is_macro,
+            ),
         }
     }
 }

@@ -41,7 +41,7 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
             result.push_str(&pr_str(&s.borrow(), print_readably));
             result.push_str(")");
             result
-        },
+        }
         MalType::List(l) => {
             let mut result = String::new();
             result.push_str("(");
@@ -85,7 +85,7 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
             result
         }
         MalType::Error(s) => s.to_string(),
-        MalType::Func(_) => "#<function>".to_string(),
-        MalType::TCOFunc(_, _, _, _) => "#<functionTCO>".to_string(),
+        MalType::Func(_, is_macro) => format!("#<function>: is_macro({})", is_macro),
+        MalType::TCOFunc(_, _, _, _, is_macro) => format!("#<functionTCO>: is_macro({})", is_macro),
     }
 }

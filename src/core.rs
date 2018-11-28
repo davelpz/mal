@@ -43,7 +43,7 @@ pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
 
 pub fn init_environment(env: &mut Environment) {
     for tup in create_namespace() {
-        env.set(tup.0.to_string(), MalType::Func(tup.1));
+        env.set(tup.0.to_string(), MalType::Func(tup.1, false));
     }
 
     env.set("*ARGV*".to_string(), MalType::List(Vec::new()));
@@ -147,13 +147,17 @@ fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
             MalType::Float(bv) if av == bv => true,
             _ => false,
         },
-        MalType::Func(av) => match b {
-            MalType::Func(bv) if av == bv => true,
+        MalType::Func(av, a_is_macro) => match b {
+            MalType::Func(bv, b_is_macro) if av == bv && a_is_macro == b_is_macro => true,
             _ => false,
         },
-        MalType::TCOFunc(av1, av2, av3, av4) => match b {
-            MalType::TCOFunc(bv1, bv2, bv3, bv4)
-                if av1 == bv1 && av2 == bv2 && av3 == bv3 && av4 == bv4 =>
+        MalType::TCOFunc(av1, av2, av3, av4, a_is_macro) => match b {
+            MalType::TCOFunc(bv1, bv2, bv3, bv4, b_is_macro)
+                if av1 == bv1
+                    && av2 == bv2
+                    && av3 == bv3
+                    && av4 == bv4
+                    && a_is_macro == b_is_macro =>
             {
                 true
             }
@@ -513,14 +517,14 @@ fn swap_builtin(args: BuiltinFuncArgs) -> MalType {
         }
 
         match func {
-            MalType::Func(f) => {
+            MalType::Func(f, _is_macro) => {
                 let result = f(func_args);
                 if let MalType::Atom(x) = atom {
                     x.replace(result.clone());
                 }
                 return result;
             }
-            MalType::TCOFunc(_args, _body, _env, func) => {
+            MalType::TCOFunc(_args, _body, _env, func, _is_macro) => {
                 let result = func(func_args);
                 if let MalType::Atom(x) = atom {
                     x.replace(result.clone());
@@ -556,8 +560,8 @@ fn concat_builtin(args: BuiltinFuncArgs) -> MalType {
         match arg {
             MalType::List(l) | MalType::Vector(l) => {
                 result.append(&mut l.clone());
-            },
-            _ => return MalType::Error("concat arguments must be a list".to_string())
+            }
+            _ => return MalType::Error("concat arguments must be a list".to_string()),
         }
     }
 

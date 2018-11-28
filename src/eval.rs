@@ -370,6 +370,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                                     Box::new(uneval_list[2].clone()),
                                     eval_env.clone(),
                                     Rc::new(Box::new(new_func)),
+                                    false,
                                 );
                                 //return MalType::Func(Rc::new(Box::new(new_func)));
                             }
@@ -388,10 +389,12 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                             let mut first = &eval_list[0];
                             if let MalType::Error(_) = first {
                                 return first.clone();
-                            } else if let MalType::Func(f) = first {
+                            } else if let MalType::Func(f, _is_macro) = first {
                                 //println!("#1 in MalType::Func(f) = first: {:?}", f);
                                 return f(eval_list[1..].to_vec());
-                            } else if let MalType::TCOFunc(args, body, env, _func) = first {
+                            } else if let MalType::TCOFunc(args, body, env, _func, _is_macro) =
+                                first
+                            {
                                 ast = *body.clone();
                                 let mut new_func_env = env.get_inner();
 
@@ -419,10 +422,10 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                         let mut first = &eval_list[0];
                         if let MalType::Error(_) = first {
                             return first.clone();
-                        } else if let MalType::Func(f) = first {
+                        } else if let MalType::Func(f, _is_macro) = first {
                             //println!("#2 in MalType::Func(f) = first: {:?}", f);
                             return f(eval_list[1..].to_vec());
-                        } else if let MalType::TCOFunc(args, body, env, _func) = first {
+                        } else if let MalType::TCOFunc(args, body, env, _func, _is_macro) = first {
                             ast = *body.clone();
                             let mut new_func_env = env.get_inner();
 
