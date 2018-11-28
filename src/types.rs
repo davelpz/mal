@@ -63,6 +63,13 @@ impl MalType {
             _ => panic!(),
         }
     }
+    pub fn set_is_macro(&mut self, val: bool) {
+        if let MalType::Func(_, ref mut is_macro) = self {
+            *is_macro = val;
+        } else if let MalType::TCOFunc(_,_,_,_,ref mut is_macro) = self {
+            *is_macro = val;
+        }
+    }
 }
 
 impl Clone for MalType {

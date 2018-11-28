@@ -275,6 +275,51 @@ pub fn quasiquote(ast: &MalType) -> MalType {
     MalType::Nil
 }
 
+fn is_macro_call(ast: &MalType, env: &mut Environment) -> bool {
+    if let MalType::List(l) = ast {
+        if l.len() > 0 {
+            if let MalType::Symbol(sym) = &l[0] {
+                let val = env.get(sym.to_string());
+                match val {
+                    MalType::Func(_, is_macro) if is_macro => {
+                        return true;
+                    }
+                    MalType::TCOFunc(_, _, _, _, is_macro) if is_macro => {
+                        return true;
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
+    false
+}
+
+fn macroexpand(ast_incomming: &MalType, env: &mut Environment) -> MalType {
+    let mut ast = ast_incomming.clone();
+    let mut is_macro = is_macro_call(&ast, env);
+
+    while is_macro {
+        if let MalType::List(l) = ast.clone() {
+            if let MalType::Symbol(sym) = &l[0] {
+                match env.get(sym.to_string()) {
+                    MalType::Func(f, _is_macro) => {
+                        ast = f(l[1..].to_vec());
+                        is_macro = is_macro_call(&ast, env);
+                    }
+                    MalType::TCOFunc(_, _, _, f, _is_macro) => {
+                        ast = f(l[1..].to_vec());
+                        is_macro = is_macro_call(&ast, env);
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
+
+    ast
+}
+
 pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
     let mut ast = t1.clone();
     let mut eval_env: Environment = env.clone();
@@ -305,6 +350,14 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                         match third {
                             MalType::Error(_) => return third,
                             _ => return eval_env.set(second.get_symbol_string(), third),
+                        }
+                    } else if s == "defmacro!" {
+                        let second = &uneval_list[1];
+                        let mut func = eval(&uneval_list[2], &mut eval_env);
+                        func.set_is_macro(true);
+                        match func {
+                            MalType::Error(_) => return func,
+                            _ => return eval_env.set(second.get_symbol_string(), func),
                         }
                     } else if s == "let*" {
                         eval_env = new_let_env(&uneval_list[1], &mut eval_env).unwrap();
