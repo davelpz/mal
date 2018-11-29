@@ -101,23 +101,23 @@ fn unescape_str(s: &str) -> String {
 fn read_atom(reader: &mut Reader) -> MalType {
     //println!("read_atom: {:?}", reader.peek());
     match reader.next() {
-        Some(t) if parsable::<i64>(t) => MalType::Int(t.parse().unwrap()),
-        Some(t) if parsable::<f64>(t) => MalType::Float(t.parse().unwrap()),
-        Some(t) if parsable::<bool>(t) => MalType::Bool(t.parse().unwrap()),
+        Some(t) if parsable::<i64>(t) => MalType::int(t.parse().unwrap()),
+        Some(t) if parsable::<f64>(t) => MalType::float(t.parse().unwrap()),
+        Some(t) if parsable::<bool>(t) => MalType::bool(t.parse().unwrap()),
         Some(t) => {
             let first_char = t.chars().next().unwrap();
             if first_char == '\"' {
                 //MalType::Str(t.to_string())
-                MalType::Str(unescape_str(t))
+                MalType::string(unescape_str(t))
             } else if first_char == ':' {
-                MalType::KeyWord(t.to_string())
+                MalType::keyword(t.to_string())
             } else if t == "nil" {
-                MalType::Nil
+                MalType::nil()
             } else {
-                MalType::Symbol(t.to_string())
+                MalType::symbol(t.to_string())
             }
         }
-        _ => MalType::Nil,
+        _ => MalType::nil(),
     }
 }
 
@@ -125,9 +125,9 @@ fn make_quote_list(quote: String, reader: &mut Reader) -> MalType {
     reader.next(); //eat the quote
     let next_form = read_form(reader);
     let mut v: Vec<MalType> = Vec::new();
-    v.push(MalType::Symbol(quote));
+    v.push(MalType::symbol(quote));
     v.push(next_form);
-    MalType::List(v)
+    MalType::list(v)
 }
 
 fn make_meta_list(reader: &mut Reader) -> MalType {
@@ -135,20 +135,20 @@ fn make_meta_list(reader: &mut Reader) -> MalType {
     let meta_form = read_form(reader);
     let next_form = read_form(reader);
     let mut v: Vec<MalType> = Vec::new();
-    v.push(MalType::Symbol("with-meta".to_string()));
+    v.push(MalType::symbol("with-meta".to_string()));
     v.push(next_form);
     v.push(meta_form);
-    MalType::List(v)
+    MalType::list(v)
 }
 
 pub fn read_form(reader: &mut Reader) -> MalType {
     //println!("read_form: {:?}", reader.peek());
     match reader.peek() {
-        Some(TOKEN_LEFT_PAREN) => MalType::List(read_list(reader, TOKEN_RIGHT_PAREN)),
+        Some(TOKEN_LEFT_PAREN) => MalType::list(read_list(reader, TOKEN_RIGHT_PAREN)),
         Some(TOKEN_LEFT_BRACKET) => {
-            MalType::Vector(read_list(reader, TOKEN_RIGHT_BRACKET))
+            MalType::vector(read_list(reader, TOKEN_RIGHT_BRACKET))
         }
-        Some(TOKEN_LEFT_CURLY) => MalType::Map(read_list(reader, TOKEN_RIGHT_CURLY)),
+        Some(TOKEN_LEFT_CURLY) => MalType::map(read_list(reader, TOKEN_RIGHT_CURLY)),
         Some(TOKEN_QUOTE) => make_quote_list("quote".to_string(), reader),
         Some(TOKEN_QUASIQUOTE) => make_quote_list("quasiquote".to_string(), reader),
         Some(TOKEN_UNQUOTE) => make_quote_list("unquote".to_string(), reader),
@@ -156,7 +156,7 @@ pub fn read_form(reader: &mut Reader) -> MalType {
         Some(TOKEN_DEREF) => make_quote_list("deref".to_string(), reader),
         Some(TOKEN_WITH_META) => make_meta_list(reader),
         Some(_) => read_atom(reader),
-        None => MalType::Nil,
+        None => MalType::nil(),
     }
 }
 
@@ -244,21 +244,21 @@ mod tests {
         let mut r = Reader::new(tokenizer(
             "(- (+ 1 a) 234.3 :kw1 nil \"boo\" true false);this is a test",
         ));
-        assert_eq!(MalType::Symbol("(".to_string()), read_atom(&mut r));
-        assert_eq!(MalType::Symbol("-".to_string()), read_atom(&mut r));
-        assert_eq!(MalType::Symbol("(".to_string()), read_atom(&mut r));
-        assert_eq!(MalType::Symbol("+".to_string()), read_atom(&mut r));
-        assert_eq!(MalType::Int(1), read_atom(&mut r));
-        assert_eq!(MalType::Symbol("a".to_string()), read_atom(&mut r));
-        assert_eq!(MalType::Symbol(")".to_string()), read_atom(&mut r));
-        assert_eq!(MalType::Float(234.3), read_atom(&mut r));
-        assert_eq!(MalType::KeyWord(":kw1".to_string()), read_atom(&mut r));
-        assert_eq!(MalType::Nil, read_atom(&mut r));
-        assert_eq!(MalType::Str("boo".to_string()), read_atom(&mut r));
-        assert_eq!(MalType::Bool(true), read_atom(&mut r));
-        assert_eq!(MalType::Bool(false), read_atom(&mut r));
-        assert_eq!(MalType::Symbol(")".to_string()), read_atom(&mut r));
-        assert_eq!(MalType::Nil, read_atom(&mut r));
+        assert_eq!(MalType::symbol("(".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::symbol("-".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::symbol("(".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::symbol("+".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::int(1), read_atom(&mut r));
+        assert_eq!(MalType::symbol("a".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::symbol(")".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::float(234.3), read_atom(&mut r));
+        assert_eq!(MalType::keyword(":kw1".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::nil(), read_atom(&mut r));
+        assert_eq!(MalType::string("boo".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::bool(true), read_atom(&mut r));
+        assert_eq!(MalType::bool(false), read_atom(&mut r));
+        assert_eq!(MalType::symbol(")".to_string()), read_atom(&mut r));
+        assert_eq!(MalType::nil(), read_atom(&mut r));
     }
 
     #[test]
@@ -266,79 +266,79 @@ mod tests {
         let mut r = Reader::new(tokenizer("(- (+ 1 a) 234.3 \"boo\" :akeyword)"));
         let mut v1: Vec<MalType> = Vec::new();
         let mut v2: Vec<MalType> = Vec::new();
-        v2.push(MalType::Symbol("+".to_string()));
-        v2.push(MalType::Int(1));
-        v2.push(MalType::Symbol("a".to_string()));
+        v2.push(MalType::symbol("+".to_string()));
+        v2.push(MalType::int(1));
+        v2.push(MalType::symbol("a".to_string()));
 
-        v1.push(MalType::Symbol("-".to_string()));
-        v1.push(MalType::List(v2));
-        v1.push(MalType::Float(234.3));
-        v1.push(MalType::Str("boo".to_string()));
-        v1.push(MalType::KeyWord(":akeyword".to_string()));
+        v1.push(MalType::symbol("-".to_string()));
+        v1.push(MalType::list(v2));
+        v1.push(MalType::float(234.3));
+        v1.push(MalType::string("boo".to_string()));
+        v1.push(MalType::keyword(":akeyword".to_string()));
 
-        assert_eq!(MalType::List(v1), read_form(&mut r));
+        assert_eq!(MalType::list(v1), read_form(&mut r));
 
         r = Reader::new(tokenizer("'1"));
         v1 = Vec::new();
-        v1.push(MalType::Symbol("quote".to_string()));
-        v1.push(MalType::Int(1));
-        assert_eq!(MalType::List(v1), read_form(&mut r));
+        v1.push(MalType::symbol("quote".to_string()));
+        v1.push(MalType::int(1));
+        assert_eq!(MalType::list(v1), read_form(&mut r));
 
         r = Reader::new(tokenizer("`1"));
         v1 = Vec::new();
-        v1.push(MalType::Symbol("quasiquote".to_string()));
-        v1.push(MalType::Int(1));
-        assert_eq!(MalType::List(v1), read_form(&mut r));
+        v1.push(MalType::symbol("quasiquote".to_string()));
+        v1.push(MalType::int(1));
+        assert_eq!(MalType::list(v1), read_form(&mut r));
 
         r = Reader::new(tokenizer("~1"));
         v1 = Vec::new();
-        v1.push(MalType::Symbol("unquote".to_string()));
-        v1.push(MalType::Int(1));
-        assert_eq!(MalType::List(v1), read_form(&mut r));
+        v1.push(MalType::symbol("unquote".to_string()));
+        v1.push(MalType::int(1));
+        assert_eq!(MalType::list(v1), read_form(&mut r));
 
         r = Reader::new(tokenizer("~@1"));
         v1 = Vec::new();
-        v1.push(MalType::Symbol("splice-unquote".to_string()));
-        v1.push(MalType::Int(1));
-        assert_eq!(MalType::List(v1), read_form(&mut r));
+        v1.push(MalType::symbol("splice-unquote".to_string()));
+        v1.push(MalType::int(1));
+        assert_eq!(MalType::list(v1), read_form(&mut r));
 
         r = Reader::new(tokenizer("@1"));
         v1 = Vec::new();
-        v1.push(MalType::Symbol("deref".to_string()));
-        v1.push(MalType::Int(1));
-        assert_eq!(MalType::List(v1), read_form(&mut r));
+        v1.push(MalType::symbol("deref".to_string()));
+        v1.push(MalType::int(1));
+        assert_eq!(MalType::list(v1), read_form(&mut r));
 
         r = Reader::new(tokenizer("^{\"a\" 1} [1 2 3]"));
         v1 = Vec::new();
         v2 = Vec::new();
         let mut v3: Vec<MalType> = Vec::new();
 
-        v2.push(MalType::Int(1));
-        v2.push(MalType::Int(2));
-        v2.push(MalType::Int(3));
+        v2.push(MalType::int(1));
+        v2.push(MalType::int(2));
+        v2.push(MalType::int(3));
 
-        v3.push(MalType::Str("a".to_string()));
-        v3.push(MalType::Int(1));
+        v3.push(MalType::string("a".to_string()));
+        v3.push(MalType::int(1));
 
-        v1.push(MalType::Symbol("with-meta".to_string()));
-        v1.push(MalType::Vector(v2));
-        v1.push(MalType::Map(v3));
-        assert_eq!(MalType::List(v1), read_form(&mut r));
+        v1.push(MalType::symbol("with-meta".to_string()));
+        v1.push(MalType::vector(v2));
+        v1.push(MalType::map(v3));
+        assert_eq!(MalType::list(v1), read_form(&mut r));
     }
 
     #[test]
     fn read_str_test() {
         let mut v1: Vec<MalType> = Vec::new();
         let mut v2: Vec<MalType> = Vec::new();
-        v2.push(MalType::Symbol("+".to_string()));
-        v2.push(MalType::Int(1));
-        v2.push(MalType::Symbol("a".to_string()));
+        v2.push(MalType::symbol("+".to_string()));
+        v2.push(MalType::int(1));
+        v2.push(MalType::symbol("a".to_string()));
 
-        v1.push(MalType::Symbol("-".to_string()));
-        v1.push(MalType::List(v2));
-        v1.push(MalType::Float(234.3));
-        v1.push(MalType::Str("boo".to_string()));
+        v1.push(MalType::symbol("-".to_string()));
+        v1.push(MalType::list(v2));
+        v1.push(MalType::float(234.3));
+        v1.push(MalType::string("boo".to_string()));
 
-        assert_eq!(MalType::List(v1), read_str("(- (+ 1 a) 234.3 \"boo\")"));
+        assert_eq!(MalType::list(v1), read_str("(- (+ 1 a) 234.3 \"boo\")"));
     }
 }

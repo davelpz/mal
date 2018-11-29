@@ -43,10 +43,10 @@ pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
 
 pub fn init_environment(env: &mut Environment) {
     for tup in create_namespace() {
-        env.set(tup.0.to_string(), MalType::Func(tup.1, false));
+        env.set(tup.0.to_string(), MalType::func(tup.1, false));
     }
 
-    env.set("*ARGV*".to_string(), MalType::List(Vec::new()));
+    env.set("*ARGV*".to_string(), MalType::list(Vec::new()));
 
     rep("(def! not (fn* (a) (if a false true)))", env);
     rep(
@@ -56,17 +56,11 @@ pub fn init_environment(env: &mut Environment) {
 }
 
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {
-    args.iter().all(|i| match i {
-        MalType::Int(_) | MalType::Float(_) => true,
-        _ => false,
-    })
+    args.iter().all(|i| i.is_int() || i.is_float())
 }
 
 fn all_int(args: &BuiltinFuncArgs) -> bool {
-    args.iter().all(|i| match i {
-        MalType::Int(_) => true,
-        _ => false,
-    })
+    args.iter().all(|i| i.is_int())
 }
 
 fn prn_helper(args: BuiltinFuncArgs, print_readably: bool, delimiter: &str) -> String {
@@ -87,86 +81,70 @@ fn prn_helper(args: BuiltinFuncArgs, print_readably: bool, delimiter: &str) -> S
 fn prn_builtin(args: BuiltinFuncArgs) -> MalType {
     println!("{}", prn_helper(args, true, " "));
 
-    MalType::Nil
+    MalType::nil()
 }
 
 fn println_builtin(args: BuiltinFuncArgs) -> MalType {
     println!("{}", prn_helper(args, false, " "));
 
-    MalType::Nil
+    MalType::nil()
 }
 
 fn pr_str_builtin(args: BuiltinFuncArgs) -> MalType {
-    MalType::Str(format!("{}", prn_helper(args, true, " ")))
+    MalType::string(format!("{}", prn_helper(args, true, " ")))
 }
 
 fn str_builtin(args: BuiltinFuncArgs) -> MalType {
-    MalType::Str(format!("{}", prn_helper(args, false, "")))
+    MalType::string(format!("{}", prn_helper(args, false, "")))
 }
 
 fn list_builtin(args: BuiltinFuncArgs) -> MalType {
-    MalType::List(args)
+    MalType::list(args)
 }
 
 fn list_test_builtin(args: BuiltinFuncArgs) -> MalType {
     match args.get(0) {
-        Some(MalType::List(_)) => MalType::Bool(true),
-        _ => MalType::Bool(false),
+        Some(x) => MalType::bool(x.is_list()),
+        _ => MalType::bool(false),
     }
 }
 
 fn empty_test_builtin(args: BuiltinFuncArgs) -> MalType {
     match args.get(0) {
-        Some(MalType::List(x)) if x.is_empty() => MalType::Bool(true),
-        Some(MalType::Vector(x)) if x.is_empty() => MalType::Bool(true),
-        _ => MalType::Bool(false),
+        Some(x) if x.is_list() || x.is_vector() => MalType::bool(x.get_list().is_empty()),
+        _ => MalType::bool(false),
     }
 }
 
 fn count_builtin(args: BuiltinFuncArgs) -> MalType {
     match args.get(0) {
-        Some(MalType::List(x)) => MalType::Int(x.len() as i64),
-        Some(MalType::Vector(x)) => MalType::Int(x.len() as i64),
-        _ => MalType::Int(0),
+        Some(x) if x.is_list() || x.is_vector() => MalType::int(x.get_list().len() as i64),
+        _ => MalType::int(0),
     }
 }
 
 fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
     //println!("equals_builtin_helper: {:?}   {:?}", a, b);
 
+    if a.is_bool() && b.is_bool() {
+        return a.get_bool() == b.get_bool()
+    }
+    else if a.is_error() && b.is_error() {
+        return a.get_string() == b.get_string()
+    }
+    else if a.is_float() && b.is_float() {
+        return a.get_float() == b.get_float()
+    }
+    else if a.is_func() && b.is_func() {
+        return a.get_func() == b.get_func()
+    }
+    else if a.is_func_tco() && b.is_func_tco() {
+        return a.get_func_tco() == b.get_func_tco()
+    }
+    else if a.is_int() && b.is_int() {
+        return a.get_int() == b.get_int()
+    }
     match a {
-        MalType::Bool(av) => match b {
-            MalType::Bool(bv) if av == bv => true,
-            _ => false,
-        },
-        MalType::Error(av) => match b {
-            MalType::Error(bv) if av == bv => true,
-            _ => false,
-        },
-        MalType::Float(av) => match b {
-            MalType::Float(bv) if av == bv => true,
-            _ => false,
-        },
-        MalType::Func(av, a_is_macro) => match b {
-            MalType::Func(bv, b_is_macro) if av == bv && a_is_macro == b_is_macro => true,
-            _ => false,
-        },
-        MalType::TCOFunc(av1, av2, av3, av4, a_is_macro) => match b {
-            MalType::TCOFunc(bv1, bv2, bv3, bv4, b_is_macro)
-                if av1 == bv1
-                    && av2 == bv2
-                    && av3 == bv3
-                    && av4 == bv4
-                    && a_is_macro == b_is_macro =>
-            {
-                true
-            }
-            _ => false,
-        },
-        MalType::Int(av) => match b {
-            MalType::Int(bv) if av == bv => true,
-            _ => false,
-        },
         MalType::KeyWord(av) => match b {
             MalType::KeyWord(bv) if av == bv => true,
             _ => false,
@@ -187,15 +165,15 @@ fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
             MalType::Atom(bv) => equals_builtin_helper(&av.borrow(), &bv.borrow()),
             _ => false,
         },
-        MalType::List(av) => match b {
-            MalType::List(bv) | MalType::Vector(bv) => {
+        MalType::list(av) => match b {
+            MalType::list(bv) | MalType::vector(bv) => {
                 (av.len() == bv.len())
                     && (av.iter().zip(bv).all(|(x, y)| equals_builtin_helper(x, y)))
             }
             _ => false,
         },
-        MalType::Vector(av) => match b {
-            MalType::Vector(bv) | MalType::List(bv) => {
+        MalType::vector(av) => match b {
+            MalType::Vector(bv) | MalType::list(bv) => {
                 (av.len() == bv.len())
                     && (av.iter().zip(bv).all(|(x, y)| equals_builtin_helper(x, y)))
             }
@@ -213,9 +191,9 @@ fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
 
 fn equals_builtin(args: BuiltinFuncArgs) -> MalType {
     if args.len() > 1 {
-        MalType::Bool(equals_builtin_helper(&args[0], &args[1]))
+        MalType::bool(equals_builtin_helper(&args[0], &args[1]))
     } else {
-        MalType::Bool(false)
+        MalType::bool(false)
     }
 }
 
@@ -223,19 +201,19 @@ fn lt_builtin(args: BuiltinFuncArgs) -> MalType {
     if args.len() > 1 {
         match args[0] {
             MalType::Int(x) => match args[1] {
-                MalType::Int(y) if x < y => MalType::Bool(true),
-                MalType::Float(y) if (x as f64) < y => MalType::Bool(true),
-                _ => MalType::Bool(false),
+                MalType::Int(y) if x < y => MalType::bool(true),
+                MalType::Float(y) if (x as f64) < y => MalType::bool(true),
+                _ => MalType::bool(false),
             },
             MalType::Float(x) => match args[1] {
-                MalType::Float(y) if x < y => MalType::Bool(true),
-                MalType::Int(y) if x < (y as f64) => MalType::Bool(true),
-                _ => MalType::Bool(false),
+                MalType::Float(y) if x < y => MalType::bool(true),
+                MalType::Int(y) if x < (y as f64) => MalType::bool(true),
+                _ => MalType::bool(false),
             },
-            _ => MalType::Bool(false),
+            _ => MalType::bool(false),
         }
     } else {
-        MalType::Bool(false)
+        MalType::bool(false)
     }
 }
 
@@ -243,19 +221,19 @@ fn le_builtin(args: BuiltinFuncArgs) -> MalType {
     if args.len() > 1 {
         match args[0] {
             MalType::Int(x) => match args[1] {
-                MalType::Int(y) if x <= y => MalType::Bool(true),
-                MalType::Float(y) if (x as f64) <= y => MalType::Bool(true),
-                _ => MalType::Bool(false),
+                MalType::Int(y) if x <= y => MalType::bool(true),
+                MalType::Float(y) if (x as f64) <= y => MalType::bool(true),
+                _ => MalType::bool(false),
             },
             MalType::Float(x) => match args[1] {
-                MalType::Float(y) if x <= y => MalType::Bool(true),
-                MalType::Int(y) if x <= (y as f64) => MalType::Bool(true),
-                _ => MalType::Bool(false),
+                MalType::Float(y) if x <= y => MalType::bool(true),
+                MalType::Int(y) if x <= (y as f64) => MalType::bool(true),
+                _ => MalType::bool(false),
             },
-            _ => MalType::Bool(false),
+            _ => MalType::bool(false),
         }
     } else {
-        MalType::Bool(false)
+        MalType::bool(false)
     }
 }
 
@@ -263,19 +241,19 @@ fn gt_builtin(args: BuiltinFuncArgs) -> MalType {
     if args.len() > 1 {
         match args[0] {
             MalType::Int(x) => match args[1] {
-                MalType::Int(y) if x > y => MalType::Bool(true),
-                MalType::Float(y) if (x as f64) > y => MalType::Bool(true),
-                _ => MalType::Bool(false),
+                MalType::Int(y) if x > y => MalType::bool(true),
+                MalType::Float(y) if (x as f64) > y => MalType::bool(true),
+                _ => MalType::bool(false),
             },
             MalType::Float(x) => match args[1] {
-                MalType::Float(y) if x > y => MalType::Bool(true),
-                MalType::Int(y) if x > (y as f64) => MalType::Bool(true),
-                _ => MalType::Bool(false),
+                MalType::Float(y) if x > y => MalType::bool(true),
+                MalType::Int(y) if x > (y as f64) => MalType::bool(true),
+                _ => MalType::bool(false),
             },
-            _ => MalType::Bool(false),
+            _ => MalType::bool(false),
         }
     } else {
-        MalType::Bool(false)
+        MalType::bool(false)
     }
 }
 
@@ -283,19 +261,19 @@ fn ge_builtin(args: BuiltinFuncArgs) -> MalType {
     if args.len() > 1 {
         match args[0] {
             MalType::Int(x) => match args[1] {
-                MalType::Int(y) if x >= y => MalType::Bool(true),
-                MalType::Float(y) if (x as f64) >= y => MalType::Bool(true),
-                _ => MalType::Bool(false),
+                MalType::Int(y) if x >= y => MalType::bool(true),
+                MalType::Float(y) if (x as f64) >= y => MalType::bool(true),
+                _ => MalType::bool(false),
             },
             MalType::Float(x) => match args[1] {
-                MalType::Float(y) if x >= y => MalType::Bool(true),
-                MalType::Int(y) if x >= (y as f64) => MalType::Bool(true),
-                _ => MalType::Bool(false),
+                MalType::Float(y) if x >= y => MalType::bool(true),
+                MalType::Int(y) if x >= (y as f64) => MalType::bool(true),
+                _ => MalType::bool(false),
             },
-            _ => MalType::Bool(false),
+            _ => MalType::bool(false),
         }
     } else {
-        MalType::Bool(false)
+        MalType::bool(false)
     }
 }
 
@@ -458,8 +436,8 @@ fn atom_builtin(args: BuiltinFuncArgs) -> MalType {
 fn atom_test_builtin(args: BuiltinFuncArgs) -> MalType {
     for arg in args {
         return match arg {
-            MalType::Atom(_) => MalType::Bool(true),
-            _ => MalType::Bool(false),
+            MalType::Atom(_) => MalType::bool(true),
+            _ => MalType::bool(false),
         };
     }
 
@@ -541,12 +519,12 @@ fn cons_builtin(args: BuiltinFuncArgs) -> MalType {
         MalType::Error("cons takes at 2 arguments".to_string())
     } else {
         match &args[1] {
-            MalType::List(l) | MalType::Vector(l) => {
+            MalType::list(l) | MalType::vector(l) => {
                 let mut result_list: Vec<MalType> = Vec::new();
                 let mut clone_list = l.clone();
                 result_list.push(args[0].clone());
                 result_list.append(&mut clone_list);
-                MalType::List(result_list)
+                MalType::list(result_list)
             }
             _ => MalType::Error("cons 2nd argument must be a list".to_string()),
         }
@@ -558,12 +536,12 @@ fn concat_builtin(args: BuiltinFuncArgs) -> MalType {
 
     for arg in &args {
         match arg {
-            MalType::List(l) | MalType::Vector(l) => {
+            MalType::list(l) | MalType::vector(l) => {
                 result.append(&mut l.clone());
             }
             _ => return MalType::Error("concat arguments must be a list".to_string()),
         }
     }
 
-    MalType::List(result)
+    MalType::list(result)
 }

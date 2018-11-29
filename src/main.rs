@@ -32,10 +32,10 @@ fn main() {
         let mut argv: Vec<MalType> = Vec::new();
 
         for arg in &args[2..] {
-            argv.push(MalType::Str(arg.clone()));
+            argv.push(MalType::string(arg.clone()));
         }
 
-        env.set("*ARGV*".to_string(), MalType::List(argv));
+        env.set("*ARGV*".to_string(), MalType::list(argv));
 
         rep(&format!("(load-file \"{}\"", file), &mut env);
     } else {

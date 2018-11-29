@@ -1,4 +1,5 @@
 use types::MalType;
+use types::MalEnum;
 
 fn escape(s: &str) -> String {
     let len = s.len();
@@ -22,27 +23,27 @@ fn escape(s: &str) -> String {
 pub fn pr_str(t: &MalType, print_readably: bool) -> String {
     //println!("{:?}",t);
 
-    match t {
-        MalType::Nil => "nil".to_string(),
-        MalType::Int(x) => x.to_string(),
-        MalType::Float(f) => f.to_string(),
-        MalType::Bool(b) => b.to_string(),
-        MalType::Str(s) => if print_readably {
-            escape(s)
+    match *t.val.borrow() {
+        MalEnum::Nil => "nil".to_string(),
+        MalEnum::Int(x) => x.to_string(),
+        MalEnum::Float(f) => f.to_string(),
+        MalEnum::Bool(b) => b.to_string(),
+        MalEnum::Str(s) => if print_readably {
+            escape(&s)
         } else {
             s.to_string()
         },
-        MalType::Symbol(s) => s.to_string(),
-        MalType::KeyWord(s) => s.to_string(),
-        MalType::Atom(s) => {
+        MalEnum::Symbol(s) => s.to_string(),
+        MalEnum::KeyWord(s) => s.to_string(),
+        MalEnum::Atom(s) => {
             let mut result = String::new();
             result.push_str("(atom ");
 
-            result.push_str(&pr_str(&s.borrow(), print_readably));
+            result.push_str(&pr_str(&s, print_readably));
             result.push_str(")");
             result
         }
-        MalType::List(l) => {
+        MalEnum::List(l) => {
             let mut result = String::new();
             result.push_str("(");
 
@@ -56,7 +57,7 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
             result.push_str(")");
             result
         }
-        MalType::Vector(l) => {
+        MalEnum::Vector(l) => {
             let mut result = String::new();
             result.push_str("[");
 
@@ -70,7 +71,7 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
             result.push_str("]");
             result
         }
-        MalType::Map(l) => {
+        MalEnum::Map(l) => {
             let mut result = String::new();
             result.push_str("{");
 
@@ -84,8 +85,8 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
             result.push_str("}");
             result
         }
-        MalType::Error(s) => s.to_string(),
-        MalType::Func(_, is_macro) => format!("#<function>: is_macro({})", is_macro),
-        MalType::TCOFunc(_, _, _, _, is_macro) => format!("#<functionTCO>: is_macro({})", is_macro),
+        MalEnum::Error(s) => s.to_string(),
+        MalEnum::Func(_, is_macro) => format!("#<function>: is_macro({})", is_macro),
+        MalEnum::TCOFunc(_, _, _, _, is_macro) => format!("#<functionTCO>: is_macro({})", is_macro),
     }
 }
