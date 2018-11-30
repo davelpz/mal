@@ -50,7 +50,7 @@ impl Environment {
     pub fn get(&self, key: String) -> MalType {
         match self.find(key.clone()) {
             Some(v) => v,
-            None => MalType::Error(format!("{} not found.", key)),
+            None => MalType::error(format!("{} not found.", key)),
         }
     }
 
@@ -95,10 +95,10 @@ impl Environment {
                     }
                 }
             } else {
-                return MalType::Error("Non Symbol in parameter list".to_string());
+                return MalType::error("Non Symbol in parameter list".to_string());
             }
         }
-        MalType::Nil
+        MalType::nil()
     }
 }
 

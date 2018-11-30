@@ -157,6 +157,12 @@ impl MalType {
             _ => false,
         }
     }
+    pub fn is_symbol(&self) -> bool {
+        match *self.val.borrow() {
+            MalEnum::Symbol(_) => true,
+            _ => false,
+        }
+    }
     pub fn is_keyword(&self) -> bool {
         match *self.val.borrow() {
             MalEnum::KeyWord(_) => true,
@@ -215,6 +221,7 @@ impl MalType {
     pub fn get_int(&self) -> i64 {
         match *self.val.borrow() {
             MalEnum::Int(i) => i,
+            MalEnum::Float(i) => i as i64,
             _ => panic!(),
         }
     }
@@ -279,6 +286,11 @@ impl MalType {
             *is_macro = val;
         } else if let MalEnum::TCOFunc(_, _, _, _, ref mut is_macro) = *self.val.borrow() {
             *is_macro = val;
+        }
+    }
+    pub fn set_atom(&mut self, val: MalType) {
+        if let MalEnum::Atom(ref mut x) = *self.val.borrow() {
+            *x = val;
         }
     }
 }
