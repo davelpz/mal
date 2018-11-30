@@ -70,20 +70,22 @@ impl Environment {
 
     pub fn bind_exprs(&mut self, binds: &[MalType], exprs: &[MalType]) -> MalType {
         for (i, bind) in binds.iter().enumerate() {
-            if let MalType::Symbol(b) = bind {
+            if bind.is_symbol() {
+                let b = bind.get_string();
                 //println!("bind_exprs: {:?}", b);
                 if b == "&" {
                     if binds.len() > (i + 1) {
                         //println!("bind_exprs: {:?}={:?}",binds[i+1],&exprs[i..]);
-                        if let MalType::Symbol(ref b2) = binds[i + 1] {
+                        if binds[i + 1].is_symbol() {
+                            let b2 = binds[i + 1].get_string();
                             if exprs.len() > i {
                                 //println!("{:?}", exprs.len() > i);
                                 //println!("{:?}", exprs.len());
                                 //println!("{:?}", i);
                                 //println!("{:?}", exprs[i..].to_vec());
-                                self.set(b2.clone(), MalType::List(exprs[i..].to_vec()));
+                                self.set(b2, MalType::list(exprs[i..].to_vec()));
                             } else {
-                                self.set(b2.clone(), MalType::List(Vec::new()));
+                                self.set(b2, MalType::list(Vec::new()));
                             }
                         }
                         break;
