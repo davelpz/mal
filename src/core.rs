@@ -405,7 +405,8 @@ fn reset_builtin(args: BuiltinFuncArgs) -> MalType {
     if args.len() != 2 {
         MalType::error("reset! takes exactly 2 arguments".to_string())
     } else {
-        let atom = &args[0];
+        let mut temp = args[0].clone();
+        let mut atom = &mut temp;
         let value = &args[1];
 
         if atom.is_atom() {
@@ -422,7 +423,8 @@ fn swap_builtin(args: BuiltinFuncArgs) -> MalType {
     if args.len() < 2 {
         MalType::error("swap! takes at least 2 arguments".to_string())
     } else {
-        let atom = &args[0];
+        let mut temp = args[0].clone();
+        let atom = &mut temp;
         let func = &args[1];
         let mut func_args: Vec<MalType> = Vec::new();
 
@@ -441,12 +443,12 @@ fn swap_builtin(args: BuiltinFuncArgs) -> MalType {
         if func.is_func() {
             let (f,_is_macro) = func.get_func();
             let result = f(func_args);
-            atom.set_atom(result);
+            atom.set_atom(result.clone());
             return result;
         } else if func.is_func_tco() {
             let (_args, _body, _env, func, _is_macro) = func.get_func_tco();
             let result = func(func_args);
-            atom.set_atom(result);
+            atom.set_atom(result.clone());
             return result;
         } else {
             return MalType::error("swap! 2nd argument must be a function".to_string())
