@@ -123,6 +123,7 @@ fn count_builtin(args: BuiltinFuncArgs) -> MalType {
 }
 
 fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
+    //println!("a({:?}) b({:?})", a, b);
     if a.is_bool() && b.is_bool() {
         a.get_bool() == b.get_bool()
     } else if a.is_error() && b.is_error() {
@@ -145,20 +146,26 @@ fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
         a.get_string() == b.get_string()
     } else if a.is_atom() && b.is_atom() {
         equals_builtin_helper(&a.get_atom(), &b.get_atom())
-    } else if a.is_list() && b.is_list() {
-        a.get_list()
+    } else if a.is_list() && (b.is_list() || b.is_vector()) {
+        let a_list = a.get_list();
+        let b_list = b.get_list();
+        (a_list.len() == b_list.len()) && a_list
             .iter()
-            .zip(b.get_list())
+            .zip(b_list)
             .all(|(x, y)| equals_builtin_helper(x, &y))
-    } else if a.is_vector() && b.is_vector() {
-        a.get_list()
+    } else if a.is_vector() && (b.is_vector() || b.is_list()){
+        let a_list = a.get_list();
+        let b_list = b.get_list();
+        (a_list.len() == b_list.len()) && a_list
             .iter()
-            .zip(b.get_list())
+            .zip(b_list)
             .all(|(x, y)| equals_builtin_helper(x, &y))
     } else if a.is_map() && b.is_map() {
-        a.get_list()
+        let a_list = a.get_list();
+        let b_list = b.get_list();
+        (a_list.len() == b_list.len()) && a_list
             .iter()
-            .zip(b.get_list())
+            .zip(b_list)
             .all(|(x, y)| equals_builtin_helper(x, &y))
     } else {
         false
@@ -376,14 +383,12 @@ fn atom_builtin(args: BuiltinFuncArgs) -> MalType {
         return MalType::atom(arg);
     }
 
-    MalType::atom(MalType::error(
-        "atom takes exactly 1 argument".to_string(),
-    ))
+    MalType::atom(MalType::error("atom takes exactly 1 argument".to_string()))
 }
 
 fn atom_test_builtin(args: BuiltinFuncArgs) -> MalType {
     for arg in args {
-        return MalType::bool(arg.is_atom())
+        return MalType::bool(arg.is_atom());
     }
 
     MalType::error("atom? takes exactly 1 argument".to_string())
@@ -395,7 +400,7 @@ fn deref_builtin(args: BuiltinFuncArgs) -> MalType {
             arg.get_atom()
         } else {
             MalType::error("deref argument not an atom".to_string())
-        }
+        };
     }
 
     MalType::error("deref takes exactly 1 argument".to_string())
@@ -412,7 +417,7 @@ fn reset_builtin(args: BuiltinFuncArgs) -> MalType {
         if atom.is_atom() {
             atom.set_atom(value.clone())
         } else {
-            return MalType::error("reset! 1st argument must be an atom".to_string())
+            return MalType::error("reset! 1st argument must be an atom".to_string());
         }
 
         value.clone()
@@ -431,7 +436,7 @@ fn swap_builtin(args: BuiltinFuncArgs) -> MalType {
         if atom.is_atom() {
             func_args.push(atom.get_atom());
         } else {
-            return MalType::error("swap! 1st argument must be an atom".to_string())
+            return MalType::error("swap! 1st argument must be an atom".to_string());
         }
 
         if args.len() > 2 {
@@ -441,7 +446,7 @@ fn swap_builtin(args: BuiltinFuncArgs) -> MalType {
         }
 
         if func.is_func() {
-            let (f,_is_macro) = func.get_func();
+            let (f, _is_macro) = func.get_func();
             let result = f(func_args);
             atom.set_atom(result.clone());
             return result;
@@ -451,7 +456,7 @@ fn swap_builtin(args: BuiltinFuncArgs) -> MalType {
             atom.set_atom(result.clone());
             return result;
         } else {
-            return MalType::error("swap! 2nd argument must be a function".to_string())
+            return MalType::error("swap! 2nd argument must be a function".to_string());
         }
     }
 }
@@ -467,7 +472,6 @@ fn cons_builtin(args: BuiltinFuncArgs) -> MalType {
             result_list.push(args[0].clone());
             result_list.append(&mut clone_list);
             MalType::list(result_list)
-
         } else {
             MalType::error("cons 2nd argument must be a list".to_string())
         }
@@ -482,7 +486,7 @@ fn concat_builtin(args: BuiltinFuncArgs) -> MalType {
             let l = arg.get_list();
             result.append(&mut l.clone());
         } else {
-            return MalType::error("concat arguments must be a list".to_string())
+            return MalType::error("concat arguments must be a list".to_string());
         }
     }
 

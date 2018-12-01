@@ -609,7 +609,7 @@ mod tests {
         tests.push(("(let* (a 5 b 6) [3 4 a [b 7] 8])", MalType::vector(v1)));
 
         for tup in tests {
-            println!("{:?}", tup.0);
+            //println!("{:?}", tup.0);
             let ast = read_str(tup.0);
             assert_eq!(eval(&ast, &mut env), tup.1);
         }
