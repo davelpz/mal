@@ -406,11 +406,11 @@ fn reset_builtin(args: BuiltinFuncArgs) -> MalType {
         MalType::error("reset! takes exactly 2 arguments".to_string())
     } else {
         let mut temp = args[0].clone();
-        let mut atom = &mut temp;
+        let atom = &mut temp;
         let value = &args[1];
 
         if atom.is_atom() {
-            atom.set_atom(*value)
+            atom.set_atom(value.clone())
         } else {
             return MalType::error("reset! 1st argument must be an atom".to_string())
         }

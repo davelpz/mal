@@ -353,8 +353,8 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     //return eval_list(&ast, &mut eval_env);
                     let eval_list_ast = eval_ast(&ast, &mut eval_env);
                     if eval_list_ast.is_list() {
-                        let mut eval_list = eval_list_ast.get_list();
-                        let mut first = &eval_list[0];
+                        let eval_list = eval_list_ast.get_list();
+                        let first = &eval_list[0];
                         if first.is_error() {
                             return first.clone();
                         } else if first.is_func() {

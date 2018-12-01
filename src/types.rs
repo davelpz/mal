@@ -240,21 +240,22 @@ impl MalType {
     }
     pub fn get_string(&self) -> String {
         match *self.val.borrow() {
-            MalEnum::Str(s) => s.clone(),
-            MalEnum::Symbol(s) => s.clone(),
-            MalEnum::KeyWord(s) => s.clone(),
-            MalEnum::Error(s) => s.clone(),
+            MalEnum::Str(ref s) => s.clone(),
+            MalEnum::Symbol(ref s) => s.clone(),
+            MalEnum::KeyWord(ref s) => s.clone(),
+            MalEnum::Error(ref s) => s.clone(),
             _ => panic!(),
         }
     }
     pub fn get_atom(&self) -> MalType {
         match *self.val.borrow() {
-            MalEnum::Atom(a) => a,
+            MalEnum::Atom(ref a) => a.clone(),
             _ => panic!(),
         }
     }
     pub fn get_list(&self) -> Vec<MalType> {
-        match *self.val.borrow() {
+        let val = self.val.borrow().clone();
+        match val {
             MalEnum::List(l) => l,
             MalEnum::Vector(l) => l,
             MalEnum::Map(l) => l,
@@ -263,7 +264,7 @@ impl MalType {
     }
     pub fn get_func(&self) -> (Rc<Box<BuiltinFunc>>, bool) {
         match *self.val.borrow() {
-            MalEnum::Func(f, is_macro) => (f, is_macro),
+            MalEnum::Func(ref f, ref is_macro) => (f.clone(), is_macro.clone()),
             _ => panic!(),
         }
     }
@@ -276,20 +277,20 @@ impl MalType {
         Rc<Box<BuiltinFunc>>,
         bool,
     ) {
-        match *self.val.borrow() {
-            MalEnum::TCOFunc(a, b, c, f, is_macro) => (a, b, c, f, is_macro),
+        match self.val.borrow().clone() {
+            MalEnum::TCOFunc(a,b,c,f,is_macro) => (a, b, c, f, is_macro),
             _ => panic!(),
         }
     }
     pub fn set_is_macro(&mut self, val: bool) {
-        if let MalEnum::Func(_, ref mut is_macro) = *self.val.borrow() {
+        if let MalEnum::Func(_, ref mut is_macro) = *self.val.borrow_mut() {
             *is_macro = val;
-        } else if let MalEnum::TCOFunc(_, _, _, _, ref mut is_macro) = *self.val.borrow() {
+        } else if let MalEnum::TCOFunc(_, _, _, _, ref mut is_macro) = *self.val.borrow_mut() {
             *is_macro = val;
         }
     }
     pub fn set_atom(&mut self, val: MalType) {
-        if let MalEnum::Atom(ref mut x) = *self.val.borrow() {
+        if let MalEnum::Atom(ref mut x) = *self.val.borrow_mut() {
             *x = val;
         }
     }
