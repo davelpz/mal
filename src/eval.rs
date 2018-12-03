@@ -238,6 +238,12 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
     //println!("eval {:?}", ast);
 
     loop {
+        if !ast.is_list() {
+            return eval_ast(&ast, &mut eval_env);
+        }
+
+        ast = macroexpand(&ast, env);
+
         if ast.is_error() {
             return ast;
         } else if ast.is_list() {
@@ -277,6 +283,8 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     } else {
                         return eval_env.set(&second.get_string(), func);
                     }
+                } else if s == "macroexpand" {
+                    return macroexpand(&uneval_list[1], env);
                 } else if s == "let*" {
                     eval_env = new_let_env(&uneval_list[1], &mut eval_env).unwrap();
                     ast = uneval_list[2].clone();
