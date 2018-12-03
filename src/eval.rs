@@ -29,14 +29,14 @@ impl Environment {
         }
     }
 
-    pub fn set(&self, key: String, value: MalType) -> MalType {
+    pub fn set(&self, key: &str, value: MalType) -> MalType {
         let c = value.clone();
-        self.map.borrow_mut().insert(key, value);
+        self.map.borrow_mut().insert(key.to_string(), value);
         c
     }
 
-    pub fn find(&self, key: String) -> Option<MalType> {
-        if let Some(x) = self.map.borrow().get(&key) {
+    pub fn find(&self, key: &str) -> Option<MalType> {
+        if let Some(x) = self.map.borrow().get(key) {
             Some(x.clone())
         } else {
             if let Some(out) = self.outer.clone() {
@@ -47,7 +47,7 @@ impl Environment {
         }
     }
 
-    pub fn get(&self, key: String) -> MalType {
+    pub fn get(&self, key: &str) -> MalType {
         match self.find(key.clone()) {
             Some(v) => v,
             None => MalType::error(format!("{} not found.", key)),
@@ -83,9 +83,9 @@ impl Environment {
                                 //println!("{:?}", exprs.len());
                                 //println!("{:?}", i);
                                 //println!("{:?}", exprs[i..].to_vec());
-                                self.set(b2, MalType::list(exprs[i..].to_vec()));
+                                self.set(&b2, MalType::list(exprs[i..].to_vec()));
                             } else {
-                                self.set(b2, MalType::list(Vec::new()));
+                                self.set(&b2, MalType::list(Vec::new()));
                             }
                         }
                         break;
@@ -93,7 +93,7 @@ impl Environment {
                 } else {
                     //println!("bind_exprs: setting");
                     if exprs.len() > i {
-                        self.set(b.clone(), exprs[i].clone());
+                        self.set(&b, exprs[i].clone());
                     }
                 }
             } else {
@@ -119,7 +119,7 @@ fn new_let_env(bind_list: &MalType, env: &mut Environment) -> Option<Environment
                     if three.is_error() {
                         return None;
                     } else {
-                        new_env.set(sym.to_string(), three);
+                        new_env.set(&sym, three);
                     }
                 } else {
                     return None;
@@ -200,7 +200,7 @@ fn is_macro_call(ast: &MalType, env: &mut Environment) -> bool {
         if !l.is_empty() {
             if l[0].is_symbol() {
                 let sym = l[0].get_string();
-                let val = env.get(sym);
+                let val = env.get(&sym);
                 return val.is_macro();
             }
         }
@@ -216,7 +216,7 @@ fn macroexpand(ast_incomming: &MalType, env: &mut Environment) -> MalType {
         let l = ast.get_list();
         if l[0].is_symbol() {
             let sym = l[0].get_string();
-            let val = env.get(sym);
+            let val = env.get(&sym);
             if val.is_func() {
                 let (f, _) = val.get_func();
                 ast = f(l[1..].to_vec());
@@ -266,7 +266,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     if third.is_error() {
                         return third;
                     } else {
-                        return eval_env.set(second.get_string(), third);
+                        return eval_env.set(&second.get_string(), third);
                     }
                 } else if s == "defmacro!" {
                     let second = &uneval_list[1];
@@ -275,7 +275,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     if func.is_error() {
                         return func;
                     } else {
-                        return eval_env.set(second.get_string(), func);
+                        return eval_env.set(&second.get_string(), func);
                     }
                 } else if s == "let*" {
                     eval_env = new_let_env(&uneval_list[1], &mut eval_env).unwrap();
@@ -419,7 +419,7 @@ pub fn eval_ast(t: &MalType, env: &mut Environment) -> MalType {
     //println!("eval_ast: {:?}", t);
     if t.is_symbol() {
         let s = t.get_string();
-        let lookup = env.get(s.clone());
+        let lookup = env.get(&s);
         if lookup.is_error() {
             MalType::error(format!("{} not found.", s))
         } else {
@@ -465,37 +465,37 @@ mod tests {
         let mut env = Environment::new();
         init_environment(&mut env);
 
-        env.set("key1".to_string(), MalType::int(1));
-        env.set("key2".to_string(), MalType::int(2));
-        env.set("key3".to_string(), MalType::int(3));
+        env.set("key1", MalType::int(1));
+        env.set("key2", MalType::int(2));
+        env.set("key3", MalType::int(3));
 
-        assert_eq!(env.get("key1".to_string()), MalType::int(1));
-        assert_eq!(env.get("key2".to_string()), MalType::int(2));
-        assert_eq!(env.get("key3".to_string()), MalType::int(3));
+        assert_eq!(env.get("key1"), MalType::int(1));
+        assert_eq!(env.get("key2"), MalType::int(2));
+        assert_eq!(env.get("key3"), MalType::int(3));
         assert_eq!(
-            env.get("won't find".to_string()),
+            env.get("won't find"),
             MalType::error("won\'t find not found.".to_string())
         );
 
         let inner = env.get_inner();
-        assert_eq!(inner.get("key1".to_string()), MalType::int(1));
+        assert_eq!(inner.get("key1"), MalType::int(1));
         assert_eq!(
-            inner.get("won't find".to_string()),
+            inner.get("won't find"),
             MalType::error("won\'t find not found.".to_string())
         );
 
-        inner.set("key3".to_string(), MalType::int(33));
-        assert_eq!(inner.get("key3".to_string()), MalType::int(33));
+        inner.set("key3", MalType::int(33));
+        assert_eq!(inner.get("key3"), MalType::int(33));
 
         let mut inner2 = inner.get_inner();
-        assert_eq!(inner2.get("key1".to_string()), MalType::int(1));
+        assert_eq!(inner2.get("key1"), MalType::int(1));
         assert_eq!(
-            inner2.get("won't find".to_string()),
+            inner2.get("won't find"),
             MalType::error("won\'t find not found.".to_string())
         );
 
-        inner2.set("key3".to_string(), MalType::int(333));
-        assert_eq!(inner2.get("key3".to_string()), MalType::int(333));
+        inner2.set("key3", MalType::int(333));
+        assert_eq!(inner2.get("key3"), MalType::int(333));
 
         let mut bind: Vec<MalType> = Vec::new();
         let mut expr: Vec<MalType> = Vec::new();
@@ -509,18 +509,18 @@ mod tests {
         expr.push(MalType::int(888));
 
         inner2.bind_exprs(&bind, &expr);
-        assert_eq!(inner2.get("a".to_string()), MalType::int(666));
-        assert_eq!(inner2.get("b".to_string()), MalType::int(777));
-        assert_eq!(inner2.get("c".to_string()), MalType::int(888));
+        assert_eq!(inner2.get("a"), MalType::int(666));
+        assert_eq!(inner2.get("b"), MalType::int(777));
+        assert_eq!(inner2.get("c"), MalType::int(888));
 
-        env.set("newSymbol".to_string(), MalType::int(456));
-        assert_eq!(inner2.get("newSymbol".to_string()), MalType::int(456));
+        env.set("newSymbol", MalType::int(456));
+        assert_eq!(inner2.get("newSymbol"), MalType::int(456));
 
         let new_env = env.clone();
-        assert_eq!(new_env.get("newSymbol".to_string()), MalType::int(456));
+        assert_eq!(new_env.get("newSymbol"), MalType::int(456));
 
-        new_env.set("newSymbol2".to_string(), MalType::int(9876));
-        assert_eq!(inner2.get("newSymbol2".to_string()), MalType::int(9876));
+        new_env.set("newSymbol2", MalType::int(9876));
+        assert_eq!(inner2.get("newSymbol2"), MalType::int(9876));
     }
 
     #[test]

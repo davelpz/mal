@@ -239,11 +239,12 @@ impl MalType {
         }
     }
     pub fn get_string(&self) -> String {
-        match *self.val.borrow() {
-            MalEnum::Str(ref s) => s.clone(),
-            MalEnum::Symbol(ref s) => s.clone(),
-            MalEnum::KeyWord(ref s) => s.clone(),
-            MalEnum::Error(ref s) => s.clone(),
+        let val = self.val.borrow().clone();
+        match val {
+            MalEnum::Str(s) => s,
+            MalEnum::Symbol(s) => s,
+            MalEnum::KeyWord(s) => s,
+            MalEnum::Error(s) => s,
             _ => panic!(),
         }
     }

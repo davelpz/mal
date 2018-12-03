@@ -35,9 +35,9 @@ fn main() {
             argv.push(MalType::string(arg.clone()));
         }
 
-        env.set("*ARGV*".to_string(), MalType::list(argv));
+        env.set("*ARGV*", MalType::list(argv));
 
-        rep(&format!("(load-file \"{}\"", file), &mut env);
+        println!("{}", rep(&format!("(load-file \"{}\"", file), &mut env));
     } else {
         // `()` can be used when no completer is required
         let mut rl = Editor::<()>::new();

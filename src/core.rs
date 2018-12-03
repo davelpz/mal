@@ -42,10 +42,10 @@ pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
 
 pub fn init_environment(env: &mut Environment) {
     for tup in create_namespace() {
-        env.set(tup.0.to_string(), MalType::func(tup.1, false));
+        env.set(tup.0, MalType::func(tup.1, false));
     }
 
-    env.set("*ARGV*".to_string(), MalType::list(Vec::new()));
+    env.set("*ARGV*", MalType::list(Vec::new()));
 
     rep("(def! not (fn* (a) (if a false true)))", env);
     rep(
