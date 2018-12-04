@@ -38,9 +38,9 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
             s.to_string()
         }
     } else if t.is_symbol() {
-        t.get_string()
+        t.get_string().to_string()
     } else if t.is_keyword() {
-        t.get_string()
+        t.get_string().to_string()
     } else if t.is_atom() {
         let s = t.get_atom();
         let mut result = String::new();
@@ -92,7 +92,7 @@ pub fn pr_str(t: &MalType, print_readably: bool) -> String {
         result.push_str("}");
         result
     } else if t.is_error() {
-        t.get_string()
+        (*t.get_string()).to_string()
     } else if t.is_func() {
         format!("#<function>: is_macro({})", t.is_macro())
     } else if t.is_func_tco() {

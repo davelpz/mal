@@ -73,7 +73,7 @@ impl Environment {
             if bind.is_symbol() {
                 let b = bind.get_string();
                 //println!("bind_exprs: {:?}", b);
-                if b == "&" {
+                if *b == "&" {
                     if binds.len() > (i + 1) {
                         //println!("bind_exprs: {:?}={:?}",binds[i+1],&exprs[i..]);
                         if binds[i + 1].is_symbol() {
@@ -154,7 +154,7 @@ pub fn quasiquote(ast: &MalType) -> MalType {
                 return MalType::nil();
             }
 
-            if sym == "unquote" {
+            if *sym == "unquote" {
                 return l[1].clone();
             }
         }
@@ -171,7 +171,7 @@ pub fn quasiquote(ast: &MalType) -> MalType {
                     return MalType::nil();
                 }
 
-                if sym2 == "splice-unquote" {
+                if *sym2 == "splice-unquote" {
                     let mut list: Vec<MalType> = Vec::new();
                     list.push(MalType::symbol("concat".to_string()));
                     list.push(l2[1].clone());
@@ -258,7 +258,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                 return MalType::error(pr_str(first, true).to_string());
             } else if first.is_symbol() {
                 let s = first.get_string();
-                if s == "eval" {
+                if *s == "eval" {
                     let second = eval(&uneval_list[1], &mut eval_env);
                     let mut root_env = eval_env.get_root();
 
@@ -266,7 +266,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     let eval_result = eval(&second, &mut root_env);
                     //println!("in eval after eval: {:?}", eval_result);
                     return eval_result;
-                } else if s == "def!" {
+                } else if *s == "def!" {
                     let second = &uneval_list[1];
                     let third = eval(&uneval_list[2], &mut eval_env);
                     if third.is_error() {
@@ -274,7 +274,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     } else {
                         return eval_env.set(&second.get_string(), third);
                     }
-                } else if s == "defmacro!" {
+                } else if *s == "defmacro!" {
                     let second = &uneval_list[1];
                     let mut func = eval(&uneval_list[2], &mut eval_env);
                     func.set_is_macro(true);
@@ -283,16 +283,16 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     } else {
                         return eval_env.set(&second.get_string(), func);
                     }
-                } else if s == "macroexpand" {
+                } else if *s == "macroexpand" {
                     return macroexpand(&uneval_list[1], env);
-                } else if s == "let*" {
+                } else if *s == "let*" {
                     eval_env = new_let_env(&uneval_list[1], &mut eval_env).unwrap();
                     ast = uneval_list[2].clone();
-                } else if s == "quote" {
+                } else if *s == "quote" {
                     return uneval_list[1].clone();
-                } else if s == "quasiquote" {
+                } else if *s == "quasiquote" {
                     ast = quasiquote(&uneval_list[1]);
-                } else if s == "do" {
+                } else if *s == "do" {
                     let temp = eval_ast(
                         &MalType::list(uneval_list[1..uneval_list.len() - 1].to_vec()),
                         &mut eval_env,
@@ -304,7 +304,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                             "Internal Error: eval_ast of list did not return a list".to_string(),
                         );
                     }
-                } else if s == "if" {
+                } else if *s == "if" {
                     let temp = eval(&uneval_list[1], &mut eval_env);
                     if temp.is_error() {
                         return temp;
@@ -321,7 +321,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                             return MalType::nil();
                         }
                     }
-                } else if s == "fn*" {
+                } else if *s == "fn*" {
                     if uneval_list[1].is_list() || uneval_list[1].is_vector() {
                         let binds = uneval_list[1].get_list();
                         //need to clone everything to prevent dangaling references

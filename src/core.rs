@@ -364,7 +364,7 @@ fn slurp_builtin(args: BuiltinFuncArgs) -> MalType {
 
     for arg in args {
         if arg.is_string() {
-            let mut file_res = File::open(arg.get_string());
+            let mut file_res = File::open(Rc::make_mut(&mut arg.get_string()));
             if let Ok(mut file) = file_res {
                 let mut contents = String::new();
                 file.read_to_string(&mut contents)

@@ -15,9 +15,9 @@ pub enum MalEnum {
     Int(i64),
     Float(f64),
     Bool(bool),
-    Str(String),
-    Symbol(String),
-    KeyWord(String),
+    Str(Rc<String>),
+    Symbol(Rc<String>),
+    KeyWord(Rc<String>),
     Atom(MalType),
     List(Vec<MalType>),
     Vector(Vec<MalType>),
@@ -30,7 +30,7 @@ pub enum MalEnum {
         Rc<Box<BuiltinFunc>>,
         bool,
     ),
-    Error(String),
+    Error(Rc<String>),
 }
 
 pub type BuiltinFuncArgs = Vec<MalType>;
@@ -71,17 +71,17 @@ impl MalType {
     }
     pub fn string(val: String) -> MalType {
         MalType {
-            val: Rc::new(RefCell::new(MalEnum::Str(val))),
+            val: Rc::new(RefCell::new(MalEnum::Str(Rc::new(val)))),
         }
     }
     pub fn symbol(val: String) -> MalType {
         MalType {
-            val: Rc::new(RefCell::new(MalEnum::Symbol(val))),
+            val: Rc::new(RefCell::new(MalEnum::Symbol(Rc::new(val)))),
         }
     }
     pub fn keyword(val: String) -> MalType {
         MalType {
-            val: Rc::new(RefCell::new(MalEnum::KeyWord(val))),
+            val: Rc::new(RefCell::new(MalEnum::KeyWord(Rc::new(val)))),
         }
     }
     pub fn atom(val: MalType) -> MalType {
@@ -124,7 +124,7 @@ impl MalType {
     }
     pub fn error(val: String) -> MalType {
         MalType {
-            val: Rc::new(RefCell::new(MalEnum::Error(val))),
+            val: Rc::new(RefCell::new(MalEnum::Error(Rc::new(val)))),
         }
     }
     pub fn is_nil(&self) -> bool {
@@ -238,13 +238,13 @@ impl MalType {
             _ => panic!(),
         }
     }
-    pub fn get_string(&self) -> String {
-        let val = self.val.borrow().clone();
-        match val {
-            MalEnum::Str(s) => s,
-            MalEnum::Symbol(s) => s,
-            MalEnum::KeyWord(s) => s,
-            MalEnum::Error(s) => s,
+    pub fn get_string(&self) -> Rc<String> {
+        let val = self.val.borrow();
+        match *val {
+            MalEnum::Str(ref s) => s.clone(),
+            MalEnum::Symbol(ref s) => s.clone(),
+            MalEnum::KeyWord(ref s) => s.clone(),
+            MalEnum::Error(ref s) => s.clone(),
             _ => panic!(),
         }
     }
