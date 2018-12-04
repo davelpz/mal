@@ -19,9 +19,9 @@ pub enum MalEnum {
     Symbol(Rc<String>),
     KeyWord(Rc<String>),
     Atom(MalType),
-    List(Vec<MalType>),
-    Vector(Vec<MalType>),
-    Map(Vec<MalType>),
+    List(Rc<Vec<MalType>>),
+    Vector(Rc<Vec<MalType>>),
+    Map(Rc<Vec<MalType>>),
     Func(Rc<Box<BuiltinFunc>>, bool),
     TCOFunc(
         Vec<MalType>,
@@ -91,17 +91,17 @@ impl MalType {
     }
     pub fn list(val: Vec<MalType>) -> MalType {
         MalType {
-            val: Rc::new(RefCell::new(MalEnum::List(val))),
+            val: Rc::new(RefCell::new(MalEnum::List(Rc::new(val)))),
         }
     }
     pub fn vector(val: Vec<MalType>) -> MalType {
         MalType {
-            val: Rc::new(RefCell::new(MalEnum::Vector(val))),
+            val: Rc::new(RefCell::new(MalEnum::Vector(Rc::new(val)))),
         }
     }
     pub fn map(val: Vec<MalType>) -> MalType {
         MalType {
-            val: Rc::new(RefCell::new(MalEnum::Map(val))),
+            val: Rc::new(RefCell::new(MalEnum::Map(Rc::new(val)))),
         }
     }
     pub fn func(f: Rc<Box<BuiltinFunc>>, is_macro: bool) -> MalType {
@@ -254,12 +254,12 @@ impl MalType {
             _ => panic!(),
         }
     }
-    pub fn get_list(&self) -> Vec<MalType> {
-        let val = self.val.borrow().clone();
-        match val {
-            MalEnum::List(l) => l,
-            MalEnum::Vector(l) => l,
-            MalEnum::Map(l) => l,
+    pub fn get_list(&self) -> Rc<Vec<MalType>> {
+        let val = self.val.borrow();
+        match *val {
+            MalEnum::List(ref l) => l.clone(),
+            MalEnum::Vector(ref l) => l.clone(),
+            MalEnum::Map(ref l) => l.clone(),
             _ => panic!(),
         }
     }
@@ -279,7 +279,7 @@ impl MalType {
         bool,
     ) {
         match self.val.borrow().clone() {
-            MalEnum::TCOFunc(a,b,c,f,is_macro) => (a, b, c, f, is_macro),
+            MalEnum::TCOFunc(a, b, c, f, is_macro) => (a, b, c, f, is_macro),
             _ => panic!(),
         }
     }

@@ -147,22 +147,22 @@ fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
     } else if a.is_atom() && b.is_atom() {
         equals_builtin_helper(&a.get_atom(), &b.get_atom())
     } else if a.is_list() && (b.is_list() || b.is_vector()) {
-        let a_list = a.get_list();
-        let b_list = b.get_list();
+        let a_list = &*a.get_list();
+        let b_list = &*b.get_list();
         (a_list.len() == b_list.len()) && a_list
             .iter()
             .zip(b_list)
             .all(|(x, y)| equals_builtin_helper(x, &y))
     } else if a.is_vector() && (b.is_vector() || b.is_list()){
-        let a_list = a.get_list();
-        let b_list = b.get_list();
+        let a_list = &*a.get_list();
+        let b_list = &*b.get_list();
         (a_list.len() == b_list.len()) && a_list
             .iter()
             .zip(b_list)
             .all(|(x, y)| equals_builtin_helper(x, &y))
     } else if a.is_map() && b.is_map() {
-        let a_list = a.get_list();
-        let b_list = b.get_list();
+        let a_list = &*a.get_list();
+        let b_list = &*b.get_list();
         (a_list.len() == b_list.len()) && a_list
             .iter()
             .zip(b_list)
@@ -466,7 +466,7 @@ fn cons_builtin(args: BuiltinFuncArgs) -> MalType {
         MalType::error("cons takes at 2 arguments".to_string())
     } else {
         if args[1].is_list() || args[1].is_vector() {
-            let l = args[1].get_list();
+            let l = &*args[1].get_list();
             let mut result_list: Vec<MalType> = Vec::new();
             let mut clone_list = l.clone();
             result_list.push(args[0].clone());
@@ -483,7 +483,7 @@ fn concat_builtin(args: BuiltinFuncArgs) -> MalType {
 
     for arg in &args {
         if arg.is_list() || arg.is_vector() {
-            let l = arg.get_list();
+            let l = &*arg.get_list();
             result.append(&mut l.clone());
         } else {
             return MalType::error("concat arguments must be a list".to_string());

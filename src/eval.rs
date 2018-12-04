@@ -323,7 +323,7 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     }
                 } else if *s == "fn*" {
                     if uneval_list[1].is_list() || uneval_list[1].is_vector() {
-                        let binds = uneval_list[1].get_list();
+                        let binds = &*uneval_list[1].get_list();
                         //need to clone everything to prevent dangaling references
                         let binds_clone = binds.clone();
                         let function_body = uneval_list[2].clone();
