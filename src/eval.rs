@@ -417,7 +417,8 @@ pub fn eval(t1: &MalType, env: &mut Environment) -> MalType {
                     );
                 }
             }
-        } else { //ast is not a list
+        } else {
+            //ast is not a list
             return eval_ast(&ast, &mut eval_env);
         }
     }
@@ -1013,10 +1014,7 @@ mod tests {
 
         //;; Testing atoms
         eval(&read_str("(def! inc3 (fn* (a) (+ 3 a)))"), &mut env);
-        tests.push((
-            "(def! a (atom 2))",
-            MalType::atom(MalType::int(2)),
-        ));
+        tests.push(("(def! a (atom 2))", MalType::atom(MalType::int(2))));
         tests.push(("(atom? a)", MalType::bool(true)));
         tests.push(("(atom? 1)", MalType::bool(false)));
         tests.push(("(deref a)", MalType::int(2)));
@@ -1064,7 +1062,7 @@ mod tests {
         tests.push(("(g3 3)", MalType::int(81)));
 
         for tup in tests {
-            println!("{:?}", tup.0);
+            //println!("{:?}", tup.0);
             let ast = read_str(tup.0);
             assert_eq!(eval(&ast, &mut env), tup.1);
         }
@@ -1384,6 +1382,51 @@ mod tests {
         v1.push(MalType::string("d".to_string()));
         v1.push(MalType::int(3));
         tests.push(("`[1 ~@c 3]", MalType::list(v1)));
+
+        for tup in tests {
+            //println!("{:?}", tup.0);
+            let ast = read_str(tup.0);
+            assert_eq!(eval(&ast, &mut env), tup.1);
+        }
+    }
+
+    #[test]
+    fn eval_test_step8() {
+        let mut env = Environment::new();
+        init_environment(&mut env);
+
+        let mut tests: Vec<(&str, MalType)> = Vec::new();
+
+        //;; Testing trivial macros
+        eval(&read_str("(defmacro! one (fn* () 1))"), &mut env);
+        eval(&read_str("(defmacro! two (fn* () 2))"), &mut env);
+        tests.push(("(one)", MalType::int(1)));
+        tests.push(("(two)", MalType::int(2)));
+
+        //;; Testing unless macros
+        eval(
+            &read_str("(defmacro! unless (fn* (pred a b) `(if ~pred ~b ~a)))"),
+            &mut env,
+        );
+        tests.push(("(unless false 7 8)", MalType::int(7)));
+        tests.push(("(unless true 7 8)", MalType::int(8)));
+        eval(
+            &read_str("(defmacro! unless2 (fn* (pred a b) `(if (not ~pred) ~a ~b)))"),
+            &mut env,
+        );
+        tests.push(("(unless2 false 7 8)", MalType::int(7)));
+        tests.push(("(unless2 true 7 8)", MalType::int(8)));
+
+        //;; Testing macroexpand
+        let mut v1 = Vec::new();
+        v1.push(MalType::symbol("if".to_string()));
+        let mut v2 = Vec::new();
+        v2.push(MalType::symbol("not".to_string()));
+        v2.push(MalType::int(2));
+        v1.push(MalType::list(v2));
+        v1.push(MalType::int(3));
+        v1.push(MalType::int(4));
+        tests.push(("(macroexpand (unless2 2 3 4))", MalType::list(v1)));
 
         for tup in tests {
             println!("{:?}", tup.0);

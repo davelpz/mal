@@ -284,9 +284,10 @@ impl MalType {
         }
     }
     pub fn set_is_macro(&mut self, val: bool) {
-        if let MalEnum::Func(_, ref mut is_macro) = *self.val.borrow_mut() {
+        let temp = &mut *self.val.borrow_mut();
+        if let MalEnum::Func(_, ref mut is_macro) = temp {
             *is_macro = val;
-        } else if let MalEnum::TCOFunc(_, _, _, _, ref mut is_macro) = *self.val.borrow_mut() {
+        } else if let MalEnum::TCOFunc(_, _, _, _, ref mut is_macro) = temp {
             *is_macro = val;
         }
     }
