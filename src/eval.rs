@@ -1428,6 +1428,14 @@ mod tests {
         v1.push(MalType::int(4));
         tests.push(("(macroexpand (unless2 2 3 4))", MalType::list(v1)));
 
+        //;; Testing evaluation of macro result
+        eval(&read_str("(defmacro! identity (fn* (x) x))"), &mut env);
+        tests.push(("(let* (a 123) (identity a))", MalType::int(123)));
+
+        //;; Testing non-macro function
+        tests.push(("(not (= 1 1))", MalType::bool(false)));
+        tests.push(("(not (= 1 2))", MalType::bool(true)));
+
         for tup in tests {
             println!("{:?}", tup.0);
             let ast = read_str(tup.0);
