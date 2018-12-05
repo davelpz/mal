@@ -55,6 +55,8 @@ pub fn init_environment(env: &mut Environment) {
         "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))",
         env,
     );
+    rep("(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))", env);
+    rep("(defmacro! or (fn* (& xs) (if (empty? xs) nil (if (= 1 (count xs)) (first xs) `(let* (or_FIXME ~(first xs)) (if or_FIXME or_FIXME (or ~@(rest xs))))))))", env);
 }
 
 fn all_numeric(args: &BuiltinFuncArgs) -> bool {
@@ -511,10 +513,10 @@ fn nth_builtin(args: BuiltinFuncArgs) -> MalType {
                         } else {
                             MalType::error("nth: index is greater than length of list".to_string())
                         }
-                    },
-                    _ => MalType::error("nth: second argument is not an int".to_string())
+                    }
+                    _ => MalType::error("nth: second argument is not an int".to_string()),
                 }
-            },
+            }
             _ => MalType::error("nth: first argument is not a list".to_string()),
         }
     }
@@ -532,7 +534,7 @@ fn first_builtin(args: BuiltinFuncArgs) -> MalType {
                 } else {
                     list[0].clone()
                 }
-            },
+            }
             _ => MalType::error("first: first argument is not a list".to_string()),
         }
     }
@@ -546,15 +548,17 @@ fn rest_builtin(args: BuiltinFuncArgs) -> MalType {
             Some(x) if x.is_list() || x.is_vector() => {
                 let list = x.get_list();
                 if list.is_empty() {
-                    MalType::nil()
+                    let temp: Vec<MalType> = Vec::new();
+                    MalType::list(temp)
                 } else {
                     if list.len() > 1 {
                         MalType::list(list[1..].to_vec())
                     } else {
-                        MalType::nil()
+                        let temp: Vec<MalType> = Vec::new();
+                        MalType::list(temp)
                     }
                 }
-            },
+            }
             _ => MalType::error("first: first argument is not a list".to_string()),
         }
     }

@@ -1395,27 +1395,28 @@ mod tests {
         let mut env = Environment::new();
         init_environment(&mut env);
 
-        let mut tests: Vec<(&str, MalType)> = Vec::new();
+        let mut tests: Vec<(&str, MalType, bool)> = Vec::new();
 
         //;; Testing trivial macros
-        eval(&read_str("(defmacro! one (fn* () 1))"), &mut env);
-        eval(&read_str("(defmacro! two (fn* () 2))"), &mut env);
-        tests.push(("(one)", MalType::int(1)));
-        tests.push(("(two)", MalType::int(2)));
+        tests.push(("(defmacro! one (fn* () 1))", MalType::nil(), false));
+        tests.push(("(defmacro! two (fn* () 2))", MalType::nil(), false));
+        tests.push(("(one)", MalType::int(1), true));
+        tests.push(("(two)", MalType::int(2), true));
 
         //;; Testing unless macros
-        eval(
-            &read_str("(defmacro! unless (fn* (pred a b) `(if ~pred ~b ~a)))"),
-            &mut env,
-        );
-        tests.push(("(unless false 7 8)", MalType::int(7)));
-        tests.push(("(unless true 7 8)", MalType::int(8)));
+        tests.push((
+            "(defmacro! unless (fn* (pred a b) `(if ~pred ~b ~a)))",
+            MalType::nil(),
+            false,
+        ));
+        tests.push(("(unless false 7 8)", MalType::int(7), true));
+        tests.push(("(unless true 7 8)", MalType::int(8), true));
         eval(
             &read_str("(defmacro! unless2 (fn* (pred a b) `(if (not ~pred) ~a ~b)))"),
             &mut env,
         );
-        tests.push(("(unless2 false 7 8)", MalType::int(7)));
-        tests.push(("(unless2 true 7 8)", MalType::int(8)));
+        tests.push(("(unless2 false 7 8)", MalType::int(7), true));
+        tests.push(("(unless2 true 7 8)", MalType::int(8), true));
 
         //;; Testing macroexpand
         let mut v1 = Vec::new();
@@ -1426,20 +1427,51 @@ mod tests {
         v1.push(MalType::list(v2));
         v1.push(MalType::int(3));
         v1.push(MalType::int(4));
-        tests.push(("(macroexpand (unless2 2 3 4))", MalType::list(v1)));
+        tests.push(("(macroexpand (unless2 2 3 4))", MalType::list(v1), true));
 
         //;; Testing evaluation of macro result
-        eval(&read_str("(defmacro! identity (fn* (x) x))"), &mut env);
-        tests.push(("(let* (a 123) (identity a))", MalType::int(123)));
+        tests.push(("(defmacro! identity (fn* (x) x))", MalType::nil(), false));
+        tests.push(("(let* (a 123) (identity a))", MalType::int(123), true));
 
         //;; Testing non-macro function
-        tests.push(("(not (= 1 1))", MalType::bool(false)));
-        tests.push(("(not (= 1 2))", MalType::bool(true)));
+        tests.push(("(not (= 1 1))", MalType::bool(false), true));
+        tests.push(("(not (= 1 2))", MalType::bool(true), true));
+
+        //;; Testing nth, first and rest functions
+        tests.push(("(nth (list 1) 0)", MalType::int(1), true));
+        tests.push(("(nth (list 1 2) 1)", MalType::int(2), true));
+        tests.push(("(def! x \"x\")", MalType::nil(), false));
+        tests.push(("(def! x (nth (list 1 2) 2))", MalType::nil(), false));
+        tests.push(("x", MalType::string("x".to_string()), true));
+        tests.push(("(first (list))", MalType::nil(), true));
+        tests.push(("(first (list 6))", MalType::int(6), true));
+        tests.push(("(first (list 7 8 9))", MalType::int(7), true));
+        let v1 : Vec<MalType> = Vec::new();
+        tests.push(("(rest (list))", MalType::list(v1), true));
+        let v1 : Vec<MalType> = Vec::new();
+        tests.push(("(rest (list 6))", MalType::list(v1), true));
+        let mut v1 : Vec<MalType> = Vec::new();
+        v1.push(MalType::int(8));
+        v1.push(MalType::int(9));
+        tests.push(("(rest (list 7 8 9))", MalType::list(v1), true));
+
+        //;; Testing or macro
+        tests.push(("(or)", MalType::nil(), true));
+        tests.push(("(or 1)", MalType::int(1), true));
+        tests.push(("(or 1 2 3 4)", MalType::int(1), true));
+        tests.push(("(or false 2)", MalType::int(2), true));
+        tests.push(("(or false nil 3)", MalType::int(3), true));
+        tests.push(("(or false nil false false nil 4)", MalType::int(4), true));
+        tests.push(("(or false nil 3 false nil 4)", MalType::int(3), true));
+        tests.push(("(or (or false 4))", MalType::int(4), true));
 
         for tup in tests {
             println!("{:?}", tup.0);
             let ast = read_str(tup.0);
-            assert_eq!(eval(&ast, &mut env), tup.1);
+            let eval_ast = eval(&ast, &mut env);
+            if tup.2 {
+                assert_eq!(eval_ast, tup.1);
+            }
         }
     }
 }
