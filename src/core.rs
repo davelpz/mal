@@ -36,6 +36,9 @@ pub fn create_namespace() -> Vec<(&'static str, Rc<Box<BuiltinFunc>>)> {
     ns.push(("swap!", Rc::new(Box::new(swap_builtin))));
     ns.push(("cons", Rc::new(Box::new(cons_builtin))));
     ns.push(("concat", Rc::new(Box::new(concat_builtin))));
+    ns.push(("nth", Rc::new(Box::new(nth_builtin))));
+    ns.push(("first", Rc::new(Box::new(first_builtin))));
+    ns.push(("rest", Rc::new(Box::new(rest_builtin))));
 
     ns
 }
@@ -153,7 +156,7 @@ fn equals_builtin_helper(a: &MalType, b: &MalType) -> bool {
             .iter()
             .zip(b_list)
             .all(|(x, y)| equals_builtin_helper(x, &y))
-    } else if a.is_vector() && (b.is_vector() || b.is_list()){
+    } else if a.is_vector() && (b.is_vector() || b.is_list()) {
         let a_list = &*a.get_list();
         let b_list = &*b.get_list();
         (a_list.len() == b_list.len()) && a_list
@@ -463,7 +466,7 @@ fn swap_builtin(args: BuiltinFuncArgs) -> MalType {
 
 fn cons_builtin(args: BuiltinFuncArgs) -> MalType {
     if args.len() < 2 {
-        MalType::error("cons takes at 2 arguments".to_string())
+        MalType::error("cons takes 2 arguments".to_string())
     } else {
         if args[1].is_list() || args[1].is_vector() {
             let l = &*args[1].get_list();
@@ -491,4 +494,68 @@ fn concat_builtin(args: BuiltinFuncArgs) -> MalType {
     }
 
     MalType::list(result)
+}
+
+fn nth_builtin(args: BuiltinFuncArgs) -> MalType {
+    if args.len() < 2 {
+        MalType::error("nth takes exactly 2 arguments".to_string())
+    } else {
+        match args.get(0) {
+            Some(x) if x.is_list() || x.is_vector() => {
+                let list = x.get_list();
+                match args.get(1) {
+                    Some(y) if y.is_int() => {
+                        let index = y.get_int();
+                        if list.len() > index as usize {
+                            list[index as usize].clone()
+                        } else {
+                            MalType::error("nth: index is greater than length of list".to_string())
+                        }
+                    },
+                    _ => MalType::error("nth: second argument is not an int".to_string())
+                }
+            },
+            _ => MalType::error("nth: first argument is not a list".to_string()),
+        }
+    }
+}
+
+fn first_builtin(args: BuiltinFuncArgs) -> MalType {
+    if args.len() < 1 {
+        MalType::error("first takes exactly 1 argument".to_string())
+    } else {
+        match args.get(0) {
+            Some(x) if x.is_list() || x.is_vector() => {
+                let list = x.get_list();
+                if list.is_empty() {
+                    MalType::nil()
+                } else {
+                    list[0].clone()
+                }
+            },
+            _ => MalType::error("first: first argument is not a list".to_string()),
+        }
+    }
+}
+
+fn rest_builtin(args: BuiltinFuncArgs) -> MalType {
+    if args.len() < 1 {
+        MalType::error("first takes exactly 1 argument".to_string())
+    } else {
+        match args.get(0) {
+            Some(x) if x.is_list() || x.is_vector() => {
+                let list = x.get_list();
+                if list.is_empty() {
+                    MalType::nil()
+                } else {
+                    if list.len() > 1 {
+                        MalType::list(list[1..].to_vec())
+                    } else {
+                        MalType::nil()
+                    }
+                }
+            },
+            _ => MalType::error("first: first argument is not a list".to_string()),
+        }
+    }
 }
