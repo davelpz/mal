@@ -1465,6 +1465,63 @@ mod tests {
         tests.push(("(or false nil 3 false nil 4)", MalType::int(3), true));
         tests.push(("(or (or false 4))", MalType::int(4), true));
 
+        //;; Testing cond macro
+        tests.push(("(cond)", MalType::nil(), true));
+        tests.push(("(cond true 7)", MalType::int(7), true));
+        tests.push(("(cond true 7 true 8)", MalType::int(7), true));
+        tests.push(("(cond false 7 true 8)", MalType::int(8), true));
+        tests.push(("(cond false 7 false 8 \"else\" 9)", MalType::int(9), true));
+        tests.push(("(cond false 7 (= 2 2) 8 \"else\" 9)", MalType::int(8), true));
+        tests.push(("(cond false 7 false 8 false 9)", MalType::nil(), true));
+
+        //;; Testing EVAL in let*
+        tests.push(("(let* (x (or nil \"yes\")) x)", MalType::string("yes".to_string()), true));
+
+        //;; Testing nth
+        tests.push(("(nth [1] 0)", MalType::int(1), true));
+        tests.push(("(nth [1 2] 1)", MalType::int(2), true));
+        tests.push(("(def! x \"x\")", MalType::int(2), false));
+        tests.push(("(def! x (nth [1 2] 2))", MalType::int(2), false));
+        tests.push(("x", MalType::string("x".to_string()), true));
+
+        //;; Testing first
+        tests.push(("(first [])", MalType::nil(), true));
+        tests.push(("(first nil)", MalType::nil(), true));
+        tests.push(("(first [10])", MalType::int(10), true));
+        tests.push(("(first [10 11 12])", MalType::int(10), true));
+
+        //;; Testing rest
+        let v: Vec<MalType> = Vec::new();
+        tests.push(("(rest [])", MalType::list(v), true));
+        let v: Vec<MalType> = Vec::new();
+        tests.push(("(rest nil)", MalType::list(v), true));
+        let v: Vec<MalType> = Vec::new();
+        tests.push(("(rest [10])", MalType::list(v), true));
+        let mut v: Vec<MalType> = Vec::new();
+        v.push(MalType::int(11));
+        v.push(MalType::int(12));
+        tests.push(("(rest [10 11 12])", MalType::list(v), true));
+
+        tests.push(("(let* [x (or nil \"yes\")] x)", MalType::string("yes".to_string()), true));
+
+        tests.push(("(load-file \"mal_tests/core.mal\")", MalType::nil(), false));
+
+        //;; Testing -> macro
+        tests.push(("(-> 7)", MalType::int(7), true));
+        tests.push(("(-> (list 7 8 9) first)", MalType::int(7), true));
+        tests.push(("(-> (list 7 8 9) (first))", MalType::int(7), true));
+        tests.push(("(-> (list 7 8 9) first (+ 7))", MalType::int(14), true));
+        tests.push(("(-> (list 7 8 9) rest (rest) first (+ 7))", MalType::int(16), true));
+
+        //;; Testing ->> macro
+        tests.push(("(->> \"L\")", MalType::string("L".to_string()), true));
+        tests.push(("(->> \"L\" (str \"A\") (str \"M\"))", MalType::string("MAL".to_string()), true));
+        let mut v: Vec<MalType> = Vec::new();
+        v.push(MalType::int(1));
+        v.push(MalType::int(3));
+        v.push(MalType::int(4));
+        tests.push(("(->> [4] (concat [3]) (concat [2]) rest (concat [1]))", MalType::list(v), true));
+
         for tup in tests {
             println!("{:?}", tup.0);
             let ast = read_str(tup.0);

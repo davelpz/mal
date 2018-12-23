@@ -534,7 +534,10 @@ fn first_builtin(args: BuiltinFuncArgs) -> MalType {
                 } else {
                     list[0].clone()
                 }
-            }
+            },
+            Some(x) if x.is_nil() => {
+                MalType::nil()
+            },
             _ => MalType::error("first: first argument is not a list".to_string()),
         }
     }
@@ -558,7 +561,11 @@ fn rest_builtin(args: BuiltinFuncArgs) -> MalType {
                         MalType::list(temp)
                     }
                 }
-            }
+            },
+            Some(x) if x.is_nil() => {
+                let v: Vec<MalType> = Vec::new();
+                MalType::list(v)
+            },
             _ => MalType::error("first: first argument is not a list".to_string()),
         }
     }
